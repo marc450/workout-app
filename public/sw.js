@@ -1,6 +1,6 @@
 /* App-shell service worker: caches static assets only. No offline logging in v1. */
 const VERSION = "v1";
-const STATIC_CACHE = `pplul-static-${VERSION}`;
+const STATIC_CACHE = `lift-static-${VERSION}`;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());

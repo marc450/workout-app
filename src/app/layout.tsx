@@ -18,13 +18,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PPLUL",
+  title: "Lift",
   description: "Push / Pull / Legs / Upper / Lower workout log",
-  applicationName: "PPLUL",
+  applicationName: "Lift",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "PPLUL",
+    title: "Lift",
     statusBarStyle: "black-translucent",
   },
   icons: {

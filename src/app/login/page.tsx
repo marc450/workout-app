@@ -1,6 +1,6 @@
 import { LoginForm } from "./LoginForm";
 
-export const metadata = { title: "Sign in · PPLUL" };
+export const metadata = { title: "Sign in · Lift" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="flex-1" />
       <div className="anim-rise">
         <p className="text-sm font-medium text-muted">Workout log</p>
-        <h1 className="font-display mt-1 text-[88px] text-text">PPLUL</h1>
+        <h1 className="font-display mt-1 text-[88px] text-text">Lift</h1>
       </div>
       <div className="mt-10">
         {error === "forbidden" && <p className="mb-4 text-sm text-danger">That account isn&apos;t allowed here.</p>}

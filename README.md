@@ -1,4 +1,4 @@
-# PPLUL Workout Tracker
+# Lift
 
 Mobile-first, single-user web app for logging a fixed five-day Push / Pull / Legs / Upper / Lower plan. Built for one-handed use between sets.
 
@@ -45,7 +45,7 @@ Authentication → URL Configuration:
 Authentication → Emails → Templates → **Magic Link**: the default template only has the link. Replace the body so it includes the six-digit code as well, for example:
 
 ```html
-<h2>Your PPLUL sign-in code</h2>
+<h2>Your Lift sign-in code</h2>
 <p style="font-size:32px;font-weight:700;letter-spacing:6px">{{ .Token }}</p>
 <p>Enter this code in the app. It expires in one hour.</p>
 <p>Or open this link in a browser: <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email">Sign in</a></p>

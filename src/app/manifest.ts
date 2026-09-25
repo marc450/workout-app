@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "PPLUL Workout Log",
-    short_name: "PPLUL",
+    name: "Lift Workout Log",
+    short_name: "Lift",
     description: "Push / Pull / Legs / Upper / Lower workout log",
     start_url: "/",
     scope: "/",

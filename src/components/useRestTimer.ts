@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const KEY = "pplul.rest";
+const KEY = "lift.rest";
 
 type Stored = { endAt: number; total: number; label: string };
 
