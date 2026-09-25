@@ -29,7 +29,7 @@ export function WeekSummary({ week, heading = "This week" }: { week: Week; headi
           const inner = (
             <>
               <div className="text-[11px] font-semibold uppercase tracking-wider opacity-70">{formatDate(t.date, { weekday: "short" })}</div>
-              <div className="font-display mt-1 text-[22px] leading-none">{t.title}</div>
+              <div className="font-display mt-1 truncate text-[19px] leading-none">{t.title}</div>
               <div className="mt-2 text-[10px] font-semibold uppercase tracking-wider opacity-70">{s.label}</div>
             </>
           );

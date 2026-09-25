@@ -46,11 +46,13 @@ export function SetRow({ index, weight, reps, status, active, stepKg, bodyweight
 
   return (
     <div
-      className={`flex flex-col gap-2 rounded-[14px] px-3 py-3 transition-opacity ${active ? "bg-surface-2" : "opacity-45"}`}
+      className={`relative flex flex-col gap-2 rounded-[14px] px-2 pb-2 pt-2 transition-opacity ${active ? "bg-surface-2" : "opacity-45"}`}
       aria-current={active ? "step" : undefined}
     >
-      <div className="flex items-center gap-2">
-        <span className="w-6 text-sm font-bold text-muted">{index}</span>
+      <span className="absolute left-2 top-1 text-[10px] font-bold leading-none text-muted" aria-hidden="true">
+        {index}
+      </span>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_52px] items-center gap-2 pt-2">
         <Stepper
           value={weight}
           display={weight === null ? "—" : fmtKg(weight)}
@@ -75,7 +77,7 @@ export function SetRow({ index, weight, reps, status, active, stepKg, bodyweight
           onClick={onConfirm}
           disabled={!canConfirm || status === "saving"}
           aria-label={`Confirm set ${index}`}
-          className={`ml-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition-colors ${
+          className={`flex h-[52px] w-[52px] items-center justify-center rounded-full transition-colors ${
             active ? "bg-accent text-accent-ink" : "bg-surface text-muted"
           } disabled:opacity-40`}
         >
@@ -127,9 +129,10 @@ function Stepper({
     setEditing(false);
   }
 
+  const long = display.length > 3;
   return (
-    <div className="flex flex-1 items-center">
-      <button type="button" onClick={onDec} aria-label={`Decrease ${unit}`} className="flex h-12 w-11 shrink-0 items-center justify-center rounded-l-[12px] bg-surface text-xl font-bold text-muted active:bg-border">
+    <div className="flex min-w-0 items-center">
+      <button type="button" onClick={onDec} aria-label={`Decrease ${unit}`} className="flex h-14 w-9 shrink-0 items-center justify-center rounded-l-[12px] bg-surface text-xl font-bold text-muted active:bg-border">
         −
       </button>
       {editing ? (
@@ -144,7 +147,7 @@ function Stepper({
           onKeyDown={(e) => {
             if (e.key === "Enter") commit();
           }}
-          className="font-display h-12 w-full min-w-0 bg-surface text-center text-[28px] text-accent outline-none"
+          className="font-display h-14 w-full min-w-0 bg-surface text-center text-[26px] text-accent outline-none"
         />
       ) : (
         <button
@@ -153,14 +156,14 @@ function Stepper({
             setText(value === null ? "" : String(value));
             setEditing(true);
           }}
-          className="flex h-12 min-w-0 flex-1 items-baseline justify-center gap-1 bg-surface"
+          className="flex h-14 min-w-0 flex-1 flex-col items-center justify-center bg-surface"
           aria-label={`${display} ${unit}, tap to type`}
         >
-          <span className={`font-display tnum ${big ? "text-[32px]" : "text-[24px]"}`}>{display}</span>
-          <span className="text-[11px] font-semibold text-muted">{unit}</span>
+          <span className={`font-display tnum leading-none ${big ? (long ? "text-[26px]" : "text-[32px]") : long ? "text-[20px]" : "text-[24px]"}`}>{display}</span>
+          <span className="mt-0.5 text-[10px] font-semibold leading-none text-muted">{unit}</span>
         </button>
       )}
-      <button type="button" onClick={onInc} aria-label={`Increase ${unit}`} className="flex h-12 w-11 shrink-0 items-center justify-center rounded-r-[12px] bg-surface text-xl font-bold text-muted active:bg-border">
+      <button type="button" onClick={onInc} aria-label={`Increase ${unit}`} className="flex h-14 w-9 shrink-0 items-center justify-center rounded-r-[12px] bg-surface text-xl font-bold text-muted active:bg-border">
         +
       </button>
     </div>
