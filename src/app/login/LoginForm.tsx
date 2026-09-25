@@ -38,14 +38,14 @@ export function LoginForm({ defaultEmail }: { defaultEmail: string }) {
   }
 
   async function verify(value: string) {
-    if (value.length !== 6 || busy) return;
+    if (value.length < 6 || value.length > 10 || busy) return;
     setBusy(true);
     setError(null);
     const supabase = getBrowserClient();
     const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: value, type: "email" });
     if (error) {
       setBusy(false);
-      setError("Wrong or expired code.");
+      setError(`Wrong or expired code. (${error.message})`);
       setCode("");
       codeRef.current?.focus();
       return;
@@ -91,10 +91,10 @@ export function LoginForm({ defaultEmail }: { defaultEmail: string }) {
       className="flex flex-col gap-3"
     >
       <p className="text-sm text-muted">
-        Enter the 6-digit code sent to <span className="text-text">{email}</span>. The email also has a link, but the code works inside the installed app.
+        Enter the code sent to <span className="text-text">{email}</span>. The email also has a link, but the code works inside the installed app.
       </p>
       <label className="sr-only" htmlFor="code">
-        6-digit code
+        Sign-in code
       </label>
       <input
         ref={codeRef}
@@ -103,19 +103,15 @@ export function LoginForm({ defaultEmail }: { defaultEmail: string }) {
         inputMode="numeric"
         pattern="[0-9]*"
         autoComplete="one-time-code"
-        maxLength={6}
+        maxLength={10}
         value={code}
-        onChange={(e) => {
-          const v = e.target.value.replace(/\D/g, "").slice(0, 6);
-          setCode(v);
-          if (v.length === 6) verify(v);
-        }}
-        className="font-display h-20 rounded-[14px] bg-surface text-center text-[44px] tracking-[0.3em] outline-none focus:ring-2 focus:ring-accent"
+        onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+        className="font-display h-20 rounded-[14px] bg-surface text-center text-[40px] tracking-[0.2em] outline-none focus:ring-2 focus:ring-accent"
       />
       {error && <p className="text-sm text-danger">{error}</p>}
       <button
         type="submit"
-        disabled={busy || code.length !== 6}
+        disabled={busy || code.length < 6}
         className="mt-2 h-14 rounded-[14px] bg-accent text-lg font-semibold text-accent-ink disabled:opacity-50"
       >
         {busy ? "Checking…" : "Sign in"}
