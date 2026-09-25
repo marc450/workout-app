@@ -45,7 +45,7 @@ export function LoginForm({ defaultEmail }: { defaultEmail: string }) {
     const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: value, type: "email" });
     if (error) {
       setBusy(false);
-      setError(`Wrong or expired code. (${error.message})`);
+      setError(/rate limit/i.test(error.message) ? "Too many attempts. Wait a minute and try again." : "Wrong or expired code.");
       setCode("");
       codeRef.current?.focus();
       return;

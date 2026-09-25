@@ -40,7 +40,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
   const [startedAt, setStartedAt] = useState<number | null>(data.session ? new Date(data.session.started_at).getTime() : null);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState<number | null>(null); // set after mount to avoid a hydration mismatch
   const sessionPromise = useRef<Promise<string | null> | null>(null);
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
   const rest = useRestTimer();
@@ -52,8 +52,12 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
 
   useEffect(() => {
     if (!startedAt) return;
+    const first = window.setTimeout(() => setNow(Date.now()), 0);
     const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
   }, [startedAt]);
 
   const getSession = useCallback(async (): Promise<string | null> => {
@@ -136,7 +140,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     router.refresh();
   }
 
-  const elapsed = startedAt ? now - startedAt : 0;
+  const elapsed = startedAt && now ? now - startedAt : 0;
   const currentSlug = useMemo(() => exercises.find((e) => rows[e.slug].some((r) => r.status !== "done"))?.slug ?? null, [exercises, rows]);
 
   return (

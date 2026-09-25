@@ -30,6 +30,7 @@ export function NoteEditor({ slug, initial }: { slug: string; initial: string })
       <button
         type="button"
         onClick={() => setOpen(true)}
+        aria-label={text ? "Edit note" : "Add a note"}
         className="flex min-h-10 w-full items-start gap-2 rounded-[10px] px-2 py-2 text-left text-sm active:bg-surface-2"
       >
         <NoteIcon />
