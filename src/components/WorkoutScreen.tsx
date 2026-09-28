@@ -7,8 +7,10 @@ import type { WorkoutData } from "@/lib/data";
 import { fmtKg, formatSets, round2 } from "@/lib/progress";
 import { formatClock, formatDate, formatDuration } from "@/lib/time";
 import { DAY_BY_KEY, targetLabel, type Exercise } from "@/plan";
+import { ClockTimerSetting } from "./ClockTimerSetting";
 import { NoteEditor } from "./NoteEditor";
 import { SetRow, type RowStatus } from "./SetRow";
+import { openClockTimer, useClockTimerSetting } from "./useClockTimer";
 import { haptic, unlockAudio, useRestTimer, useWakeLock } from "./useRestTimer";
 
 type Row = { weight: number | null; reps: number; status: RowStatus };
@@ -44,6 +46,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
   const sessionPromise = useRef<Promise<string | null> | null>(null);
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
   const rest = useRestTimer();
+  const [clockTimer, setClockTimer] = useClockTimerSetting();
 
   const totalSets = exercises.reduce((n, e) => n + e.sets, 0);
   const doneSets = Object.values(rows).flat().filter((r) => r.status === "done").length;
@@ -87,6 +90,8 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     haptic(12);
     update(ex.slug, idx, { status: "saving", weight });
     rest.start(ex.restSec, ex.name);
+    // Still inside the tap, so iOS lets us hand the rest to the Clock app via Shortcuts.
+    if (clockTimer) openClockTimer(ex.restSec);
 
     const sid = await getSession();
     if (!sid) {
@@ -167,6 +172,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
         <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
           <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${(doneSets / totalSets) * 100}%` }} />
         </div>
+        {!editing && <ClockTimerSetting enabled={clockTimer} onChange={setClockTimer} />}
       </header>
 
       <div className="mt-6 flex flex-col gap-3 px-4">
