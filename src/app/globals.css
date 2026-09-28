@@ -154,6 +154,7 @@ input[type="number"] {
   50% {
     background-color: var(--accent);
     color: var(--accent-ink);
+    --text-muted: var(--accent-ink);
   }
 }
 @keyframes slide-up {

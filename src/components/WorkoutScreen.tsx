@@ -267,12 +267,12 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
 
       {rest.active && (
         <div
-          className={`anim-slide-up fixed inset-x-0 bottom-0 z-20 ${rest.fired ? "anim-flash" : ""}`}
+          className="anim-slide-up fixed inset-x-0 bottom-0 z-20"
           role="timer"
           aria-live="polite"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
         >
-          <div className="mx-3 rounded-card bg-surface-2 p-3 shadow-[0_-8px_30px_rgba(0,0,0,0.5)]">
+          <div className={`mx-3 rounded-card bg-surface-2 p-3 shadow-[0_-8px_30px_rgba(0,0,0,0.5)] ${rest.fired ? "anim-flash" : ""}`}>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => rest.adjust(-15)} className="h-12 w-16 rounded-[12px] bg-surface text-sm font-bold text-text">
                 −15
