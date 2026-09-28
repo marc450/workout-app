@@ -53,10 +53,13 @@ body {
   min-height: 100dvh;
 }
 
-button,
-input {
-  font: inherit;
-  color: inherit;
+/* Keep this in the base layer: an unlayered rule would beat every text-* utility on buttons. */
+@layer base {
+  button,
+  input {
+    font: inherit;
+    color: inherit;
+  }
 }
 
 button {
