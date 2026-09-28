@@ -56,9 +56,9 @@ export const PLAN: Day[] = [
       { slug: "bench-press-barbell", name: "Bench Press (Barbell)", muscle: "chest", sets: 3, repMin: 6, repMax: 10, restSec: 150, incrementKg: 2.5 },
       { slug: "shoulder-press-dumbbell", name: "Shoulder Press (Dumbbell)", muscle: "shoulders", sets: 3, repMin: 10, repMax: 12, restSec: 120, incrementKg: 2 },
       { slug: "low-cable-fly", name: "Low Cable Fly", muscle: "chest", sets: 3, repMin: 12, repMax: 15, restSec: 90, incrementKg: 2.5 },
+      { slug: "lateral-raise-dumbbell", name: "Lateral Raise (Dumbbell)", muscle: "shoulders", sets: 3, repMin: 12, repMax: 20, restSec: 90, incrementKg: 2 },
       { slug: "triceps-extension-dumbbell", name: "Triceps Extension (Dumbbell)", muscle: "triceps", sets: 3, repMin: 12, repMax: 15, restSec: 90, incrementKg: 2 },
       { slug: "rope-pushdown", name: "Rope Pushdown", muscle: "triceps", sets: 3, repMin: 12, repMax: 15, restSec: 90, incrementKg: 2.5 },
-      { slug: "lateral-raise-dumbbell", name: "Lateral Raise (Dumbbell)", muscle: "shoulders", sets: 3, repMin: 12, repMax: 20, restSec: 90, incrementKg: 2 },
     ],
   },
   {
