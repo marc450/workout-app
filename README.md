@@ -89,6 +89,7 @@ curl "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/set_logs?select=*" \
 ## Behaviour notes
 
 - **Today** opens the workout for the current weekday in Europe/Zurich. Saturday and Sunday show the week summary. Missed weekdays cannot be logged later.
+- **Rep range**: while a set is being entered, reps below the exercise's range turn red with a "Below target" line, reps above it turn yellow with an "Add weight next time" line. Done rows show a small ▼ or ▲ after the reps when they were outside the range.
 - **Prefill**: each set row starts with the last session's weight and reps for the same set index.
 - **Progression chip** appears when the last session had every planned set at one weight with every set at `repMax`. Tapping applies `+incrementKg` to the unconfirmed rows. It is never applied automatically.
 - **Rest timer** stores its end timestamp in `localStorage`, so it stays correct after the phone locks. At zero it vibrates (Android), beeps (all platforms, after the first tap unlocked audio) and flashes. It only fires while Lift is in the foreground: iOS freezes the page in the background, and the Web Audio beep respects the silent switch.

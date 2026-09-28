@@ -12,6 +12,8 @@ type Props = {
   status: RowStatus;
   active: boolean;
   stepKg: number;
+  repMin: number;
+  repMax: number;
   bodyweight: boolean;
   perSide: boolean;
   onChange: (v: { weight?: number | null; reps?: number }) => void;
@@ -19,9 +21,10 @@ type Props = {
   onUnconfirm: () => void;
 };
 
-export function SetRow({ index, weight, reps, status, active, stepKg, bodyweight, perSide, onChange, onConfirm, onUnconfirm }: Props) {
+export function SetRow({ index, weight, reps, status, active, stepKg, repMin, repMax, bodyweight, perSide, onChange, onConfirm, onUnconfirm }: Props) {
   const done = status === "done";
   const canConfirm = weight !== null || bodyweight;
+  const range = reps < repMin ? "below" : reps > repMax ? "above" : "in";
 
   if (done) {
     return (
@@ -38,6 +41,11 @@ export function SetRow({ index, weight, reps, status, active, stepKg, bodyweight
           <span className="mx-3 opacity-50">×</span>
           {reps}
           {perSide && <span className="ml-1 text-[16px] font-bold opacity-70">/ side</span>}
+          {range !== "in" && (
+            <span className="ml-2 text-[14px] font-bold opacity-70" aria-label={range === "below" ? `Below target ${repMin} to ${repMax} reps` : `Above target ${repMin} to ${repMax} reps`}>
+              {range === "below" ? "▼" : "▲"}
+            </span>
+          )}
         </span>
         <CheckIcon />
       </button>
@@ -71,6 +79,7 @@ export function SetRow({ index, weight, reps, status, active, stepKg, bodyweight
           onDec={() => onChange({ reps: Math.max(0, reps - 1) })}
           onInc={() => onChange({ reps: reps + 1 })}
           onInput={(v) => onChange({ reps: Math.max(0, Math.round(v ?? 0)) })}
+          tone={range === "below" ? "danger" : range === "above" ? "pr" : undefined}
         />
         <button
           type="button"
@@ -84,6 +93,11 @@ export function SetRow({ index, weight, reps, status, active, stepKg, bodyweight
           {status === "saving" ? <Spinner /> : <CheckIcon />}
         </button>
       </div>
+      {range !== "in" && active && (
+        <p className={`px-1 text-[12px] font-semibold ${range === "below" ? "text-danger" : "text-pr"}`} role="status">
+          {range === "below" ? `Below target: ${repMin}–${repMax} reps` : `Above target: ${repMin}–${repMax} reps. Add weight next time.`}
+        </p>
+      )}
       {status === "error" && (
         <button type="button" onClick={onConfirm} className="flex h-9 items-center justify-between rounded-[10px] bg-danger/15 px-3 text-sm font-semibold text-danger">
           Not saved <span>Retry</span>
@@ -102,6 +116,7 @@ function Stepper({
   onInc,
   onInput,
   decimal,
+  tone,
 }: {
   value: number | null;
   display: string;
@@ -111,6 +126,7 @@ function Stepper({
   onInc: () => void;
   onInput: (v: number | null) => void;
   decimal?: boolean;
+  tone?: "danger" | "pr";
 }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
@@ -130,6 +146,7 @@ function Stepper({
   }
 
   const long = display.length > 3;
+  const toneClass = tone === "danger" ? "text-danger" : tone === "pr" ? "text-pr" : "";
   return (
     <div className="flex min-w-0 items-center">
       <button type="button" onClick={onDec} aria-label={`Decrease ${unit}`} className="flex h-14 w-9 shrink-0 items-center justify-center rounded-l-[12px] bg-surface text-xl font-bold text-muted active:bg-border">
@@ -159,7 +176,7 @@ function Stepper({
           className="flex h-14 min-w-0 flex-1 flex-col items-center justify-center bg-surface"
           aria-label={`${display} ${unit}, tap to type`}
         >
-          <span className={`font-display tnum leading-none ${big ? (long ? "text-[26px]" : "text-[32px]") : long ? "text-[20px]" : "text-[24px]"}`}>{display}</span>
+          <span className={`font-display tnum leading-none transition-colors ${toneClass} ${big ? (long ? "text-[26px]" : "text-[32px]") : long ? "text-[20px]" : "text-[24px]"}`}>{display}</span>
           <span className="mt-0.5 text-[10px] font-semibold leading-none text-muted">{unit}</span>
         </button>
       )}

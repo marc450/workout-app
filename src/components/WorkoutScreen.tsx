@@ -232,6 +232,8 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                     status={row.status}
                     active={i === activeIdx}
                     stepKg={ex.incrementKg}
+                    repMin={ex.repMin}
+                    repMax={ex.repMax}
                     bodyweight={!!ex.bodyweight}
                     perSide={!!ex.perSide}
                     onChange={(v) => update(ex.slug, i, v)}
