@@ -69,8 +69,8 @@ export const PLAN: Day[] = [
       { slug: "bent-over-row-barbell", name: "Bent Over Row (Barbell)", muscle: "back", sets: 3, repMin: 6, repMax: 10, restSec: 150, incrementKg: 2.5 },
       { slug: "lat-pulldown", name: "Lat Pulldown", muscle: "back", sets: 3, repMin: 8, repMax: 12, restSec: 120, incrementKg: 2.5 },
       { slug: "biceps-curl-dumbbell", name: "Biceps Curl (Dumbbell)", muscle: "biceps", sets: 3, repMin: 12, repMax: 15, restSec: 90, incrementKg: 2 },
-      { slug: "hammer-curl-dumbbell", name: "Hammer Curl (Dumbbell)", muscle: "biceps", sets: 3, repMin: 12, repMax: 15, restSec: 90, incrementKg: 2 },
       { slug: "face-pull", name: "Face Pull", muscle: "shoulders", sets: 3, repMin: 15, repMax: 25, restSec: 90, incrementKg: 2.5 },
+      { slug: "hammer-curl-dumbbell", name: "Hammer Curl (Dumbbell)", muscle: "biceps", sets: 3, repMin: 12, repMax: 15, restSec: 90, incrementKg: 2 },
     ],
   },
   {
