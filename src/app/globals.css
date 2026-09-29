@@ -165,8 +165,35 @@ input[type="number"] {
     transform: translateY(0);
   }
 }
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop-big {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
 .anim-pop {
   animation: pop 220ms var(--ease-spring);
+}
+.anim-pop-big {
+  animation: pop-big 520ms var(--ease-spring) both;
+}
+.anim-fade-in {
+  animation: fade-in 260ms ease-out both;
 }
 .anim-rise {
   animation: rise 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -180,6 +207,8 @@ input[type="number"] {
 
 @media (prefers-reduced-motion: reduce) {
   .anim-pop,
+  .anim-pop-big,
+  .anim-fade-in,
   .anim-rise,
   .anim-flash,
   .anim-slide-up,

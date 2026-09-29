@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { confirmSet, ensureSession, finishSession, unconfirmSet } from "@/app/actions";
-import type { WorkoutData } from "@/lib/data";
-import { fmtKg, formatSets, round2 } from "@/lib/progress";
+import type { LastResult, WorkoutData } from "@/lib/data";
+import { fmtKg, formatSets, round2, setVolume } from "@/lib/progress";
 import { formatClock, formatDate, formatDuration } from "@/lib/time";
 import { DAY_BY_KEY, targetLabel, type Exercise } from "@/plan";
+import { type BurstOrigin, Confetti, centerOf, prefersReducedMotion } from "./Celebration";
 import { ClockTimerSetting } from "./ClockTimerSetting";
 import { NoteEditor } from "./NoteEditor";
 import { SetRow, type RowStatus } from "./SetRow";
@@ -15,6 +16,39 @@ import { haptic, unlockAudio, useRestTimer, useWakeLock } from "./useRestTimer";
 
 type Row = { weight: number | null; reps: number; status: RowStatus };
 type Rows = Record<string, Row[]>;
+type Burst = { id: string; origin: BurstOrigin; count: number; power: number; spread: number };
+type Finished = { volume: number; delta: number | null };
+
+/** Total kg lifted across the confirmed sets. */
+function doneVolume(rows: Row[]): number {
+  return rows.reduce((sum, r) => (r.status === "done" ? sum + (r.weight ?? 0) * r.reps : sum), 0);
+}
+
+/**
+ * How many kg of total volume the exercise beat its previous session by,
+ * or null when it isn't complete yet, has no previous session, or didn't beat it.
+ */
+function beatBy(rows: Row[], last: LastResult | undefined): number | null {
+  if (!last || last.sets.length === 0 || rows.some((r) => r.status !== "done")) return null;
+  const delta = round2(doneVolume(rows) - setVolume(last.sets));
+  return delta > 0 ? delta : null;
+}
+
+/** Session volume against the sum of every exercise's previous session; null when any exercise lifted today has no history. */
+function sessionDelta(rows: Rows, exercises: Exercise[], last: Record<string, LastResult>): number | null {
+  let today = 0;
+  let previous = 0;
+  for (const ex of exercises) {
+    if (!rows[ex.slug].some((r) => r.status === "done")) continue;
+    const l = last[ex.slug];
+    if (!l || l.sets.length === 0) return null;
+    today += doneVolume(rows[ex.slug]);
+    previous += setVolume(l.sets);
+  }
+  if (previous === 0) return null;
+  const delta = round2(today - previous);
+  return delta > 0 ? delta : null;
+}
 
 function initialRows(data: WorkoutData, exercises: Exercise[]): Rows {
   const rows: Rows = {};
@@ -42,6 +76,10 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
   const [startedAt, setStartedAt] = useState<number | null>(data.session ? new Date(data.session.started_at).getTime() : null);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+  const [finished, setFinished] = useState<Finished | null>(null);
+  const [bursts, setBursts] = useState<Burst[]>([]);
+  // Exercises that already got their confetti (or were complete on load), so an unconfirm + reconfirm doesn't replay it.
+  const [celebrated] = useState(() => new Set(exercises.filter((e) => beatBy(rows[e.slug], data.last[e.slug]) !== null).map((e) => e.slug)));
   const [now, setNow] = useState<number | null>(null); // set after mount to avoid a hydration mismatch
   const sessionPromise = useRef<Promise<string | null> | null>(null);
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -83,6 +121,13 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     setRows((r) => ({ ...r, [slug]: r[slug].map((row, i) => (i === idx ? { ...row, ...patch } : row)) }));
   }, []);
 
+  const removeBurst = useCallback((id: string) => setBursts((b) => b.filter((x) => x.id !== id)), []);
+
+  function burst(origin: BurstOrigin, opts: { count: number; power: number; spread: number }) {
+    if (prefersReducedMotion()) return;
+    setBursts((b) => [...b, { id: `${Date.now()}-${b.length}`, origin, ...opts }]);
+  }
+
   async function confirm(ex: Exercise, idx: number) {
     const row = rows[ex.slug][idx];
     const weight = row.weight ?? 0;
@@ -108,6 +153,13 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     // Auto-scroll to the next exercise once this one is complete.
     const remaining = rows[ex.slug].filter((r, i) => i !== idx && r.status !== "done").length;
     if (remaining === 0) {
+      // Celebrate the first time this exercise beats its last session's total volume.
+      const doneRows = rows[ex.slug].map((r, i) => (i === idx ? { ...r, weight, status: "done" as const } : r));
+      if (!editing && !celebrated.has(ex.slug) && beatBy(doneRows, data.last[ex.slug]) !== null) {
+        celebrated.add(ex.slug);
+        haptic([20, 40, 20, 40, 40]);
+        burst(centerOf(cardRefs.current[ex.slug]), { count: 80, power: 1, spread: 1.2 });
+      }
       const pos = exercises.findIndex((e) => e.slug === ex.slug);
       const next = exercises.slice(pos + 1).find((e) => rows[e.slug].some((r) => r.status !== "done"));
       if (next) {
@@ -140,13 +192,26 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
       return;
     }
     rest.stop();
-    haptic([30, 40, 30]);
-    router.replace("/");
-    router.refresh();
+    haptic([30, 40, 30, 40, 60]);
+    setFinished({ volume: Object.values(rows).reduce((sum, r) => sum + doneVolume(r), 0), delta: sessionDelta(rows, exercises, data.last) });
+    burst({ x: window.innerWidth / 2, y: window.innerHeight * 0.8 }, { count: 180, power: 1.6, spread: 0.7 });
+    // Let the celebration land before the summary replaces this screen.
+    window.setTimeout(() => {
+      router.replace("/");
+      router.refresh();
+    }, prefersReducedMotion() ? 900 : 2200);
   }
 
   const elapsed = startedAt && now ? now - startedAt : 0;
   const currentSlug = useMemo(() => exercises.find((e) => rows[e.slug].some((r) => r.status !== "done"))?.slug ?? null, [exercises, rows]);
+  const beats = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const ex of exercises) {
+      const d = beatBy(rows[ex.slug], data.last[ex.slug]);
+      if (d !== null) out[ex.slug] = d;
+    }
+    return out;
+  }, [exercises, rows, data.last]);
 
   return (
     <div className="pb-40">
@@ -183,6 +248,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
           const hint = data.hints[ex.slug];
           const isCurrent = ex.slug === currentSlug;
           const complete = activeIdx === -1;
+          const beat = beats[ex.slug];
           return (
             <section
               key={ex.slug}
@@ -220,6 +286,12 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                     <span>First time. Enter a weight.</span>
                   )}
                 </div>
+                {beat !== undefined && (
+                  <div className="anim-pop mt-2 inline-flex items-center gap-1.5 rounded-full bg-pr/15 px-2.5 py-1 text-[12px] font-bold text-pr" role="status">
+                    <span aria-hidden="true">▲</span>
+                    Beat last time · +{fmtKg(beat)} kg total
+                  </div>
+                )}
                 <NoteEditor slug={ex.slug} initial={data.notes[ex.slug] ?? ""} />
               </div>
               <div className="mt-2 flex flex-col gap-2">
@@ -256,7 +328,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
           <button
             type="button"
             onClick={finish}
-            disabled={doneSets === 0 || !sessionId || finishing}
+            disabled={doneSets === 0 || !sessionId || finishing || finished !== null}
             className="h-16 w-full rounded-[14px] bg-text text-lg font-bold text-bg disabled:opacity-30"
           >
             {finishing ? "Finishing…" : doneSets === totalSets ? "Finish workout" : `Finish (${doneSets}/${totalSets} sets)`}
@@ -265,7 +337,28 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
         {finishError && <p className="mt-2 text-sm text-danger">{finishError}</p>}
       </div>
 
-      {rest.active && (
+      {finished && (
+        <div className="anim-fade-in fixed inset-0 z-40 flex flex-col items-center justify-center bg-bg/90 px-6 text-center backdrop-blur-sm" role="status" aria-live="assertive">
+          <div className="text-[12px] font-semibold uppercase tracking-wider text-muted">Workout complete</div>
+          <div className="font-display anim-pop-big mt-2 text-[72px] text-accent">{day.title} done</div>
+          <div className="font-display tnum mt-4 text-[40px] leading-none text-text">
+            {fmtKg(round2(finished.volume))}
+            <span className="ml-1 text-[20px] text-muted">kg lifted</span>
+          </div>
+          {finished.delta !== null && (
+            <div className="anim-rise mt-4 inline-flex items-center gap-1.5 rounded-full bg-pr/15 px-3.5 py-1.5 text-[14px] font-bold text-pr" style={{ animationDelay: "250ms" }}>
+              <span aria-hidden="true">▲</span>
+              +{fmtKg(finished.delta)} kg vs last time
+            </div>
+          )}
+        </div>
+      )}
+
+      {bursts.map((b) => (
+        <Confetti key={b.id} id={b.id} origin={b.origin} count={b.count} power={b.power} spread={b.spread} onDone={removeBurst} />
+      ))}
+
+      {rest.active && !finished && (
         <div
           className="anim-slide-up fixed inset-x-0 bottom-0 z-20"
           role="timer"
