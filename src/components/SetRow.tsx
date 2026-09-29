@@ -16,15 +16,18 @@ type Props = {
   repMax: number;
   bodyweight: boolean;
   perSide: boolean;
+  /** Weight logged for this set last session, when there was one. */
+  lastWeight?: number;
   onChange: (v: { weight?: number | null; reps?: number }) => void;
   onConfirm: () => void;
   onUnconfirm: () => void;
 };
 
-export function SetRow({ index, weight, reps, status, active, stepKg, repMin, repMax, bodyweight, perSide, onChange, onConfirm, onUnconfirm }: Props) {
+export function SetRow({ index, weight, reps, status, active, stepKg, repMin, repMax, bodyweight, perSide, lastWeight, onChange, onConfirm, onUnconfirm }: Props) {
   const done = status === "done";
   const canConfirm = weight !== null || bodyweight;
   const range = reps < repMin ? "below" : reps > repMax ? "above" : "in";
+  const lighter = lastWeight !== undefined && weight !== null && weight < lastWeight;
 
   if (done) {
     return (
@@ -32,7 +35,7 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
         type="button"
         onClick={onUnconfirm}
         className="anim-pop flex h-16 w-full items-center gap-3 rounded-[14px] bg-accent px-4 text-accent-ink"
-        aria-label={`Set ${index} done: ${fmtKg(weight ?? 0)} kg × ${reps}. Tap to edit`}
+        aria-label={`Set ${index} done: ${fmtKg(weight ?? 0)} kg × ${reps}.${range === "below" ? ` Below target ${repMin} to ${repMax} reps.` : range === "above" ? ` Above target ${repMin} to ${repMax} reps.` : ""}${lighter ? ` Lighter than last time (${fmtKg(lastWeight)} kg).` : ""} Tap to edit`}
       >
         <span className="w-6 text-left text-sm font-bold opacity-70">{index}</span>
         <span className="font-display flex-1 text-left text-[30px]">
@@ -41,12 +44,13 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
           <span className="mx-3 opacity-50">×</span>
           {reps}
           {perSide && <span className="ml-1 text-[16px] font-bold opacity-70">/ side</span>}
-          {range !== "in" && (
-            <span className="ml-2 text-[14px] font-bold opacity-70" aria-label={range === "below" ? `Below target ${repMin} to ${repMax} reps` : `Above target ${repMin} to ${repMax} reps`}>
-              {range === "below" ? "▼" : "▲"}
-            </span>
-          )}
         </span>
+        {(range !== "in" || lighter) && (
+          <span className="flex shrink-0 flex-col items-end gap-1" aria-hidden="true">
+            {range !== "in" && <Flag>{range === "below" ? "▼ reps" : "▲ reps"}</Flag>}
+            {lighter && <Flag>▼ kg</Flag>}
+          </span>
+        )}
         <CheckIcon />
       </button>
     );
@@ -185,6 +189,10 @@ function Stepper({
       </button>
     </div>
   );
+}
+
+function Flag({ children }: { children: React.ReactNode }) {
+  return <span className="font-sans rounded-md bg-accent-ink/15 px-1.5 py-0.5 text-[11px] font-bold normal-case tracking-normal">{children}</span>;
 }
 
 function CheckIcon() {

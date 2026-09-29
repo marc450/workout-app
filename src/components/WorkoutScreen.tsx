@@ -50,16 +50,20 @@ function sessionDelta(rows: Rows, exercises: Exercise[], last: Record<string, La
   return delta > 0 ? delta : null;
 }
 
+/** The set logged at this index last session, falling back to its final set. */
+function lastSet(last: LastResult | undefined, idx: number) {
+  const sets = last?.sets ?? [];
+  return sets.find((l) => l.set_index === idx) ?? sets[sets.length - 1];
+}
+
 function initialRows(data: WorkoutData, exercises: Exercise[]): Rows {
   const rows: Rows = {};
   for (const ex of exercises) {
-    const last = data.last[ex.slug]?.sets ?? [];
-    const lastFallback = last[last.length - 1];
     rows[ex.slug] = Array.from({ length: ex.sets }, (_, i) => {
       const idx = i + 1;
       const logged = data.logs.find((l) => l.exercise_slug === ex.slug && l.set_index === idx);
       if (logged) return { weight: Number(logged.weight_kg), reps: logged.reps, status: "done" as const };
-      const prev = last.find((l) => l.set_index === idx) ?? lastFallback;
+      const prev = lastSet(data.last[ex.slug], idx);
       if (prev) return { weight: Number(prev.weight_kg), reps: prev.reps, status: "idle" as const };
       return { weight: ex.bodyweight ? 0 : null, reps: ex.repMin, status: "idle" as const };
     });
@@ -308,6 +312,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                     repMax={ex.repMax}
                     bodyweight={!!ex.bodyweight}
                     perSide={!!ex.perSide}
+                    lastWeight={last ? Number(lastSet(last, i + 1)?.weight_kg) : undefined}
                     onChange={(v) => update(ex.slug, i, v)}
                     onConfirm={() => confirm(ex, i)}
                     onUnconfirm={() => unconfirm(ex, i)}
