@@ -144,7 +144,7 @@ function Stepper({
   }, [editing]);
 
   function commit() {
-    const n = parseFloat(text.replace(",", "."));
+    const n = parseFloat(text.trim().replace(",", "."));
     onInput(Number.isFinite(n) ? n : value);
     setEditing(false);
   }
@@ -159,11 +159,13 @@ function Stepper({
       {editing ? (
         <input
           ref={ref}
-          type="number"
+          // A number input silently drops the comma the German decimal keyboard types, so take text and parse it ourselves.
+          type="text"
           inputMode={decimal ? "decimal" : "numeric"}
-          step={decimal ? "0.5" : "1"}
+          autoComplete="off"
+          enterKeyHint="done"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => setText(e.target.value.replace(decimal ? /[^0-9.,]/g : /[^0-9]/g, ""))}
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === "Enter") commit();
