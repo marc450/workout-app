@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { SessionSummary } from "@/lib/data";
-import { fmtKg, formatSets } from "@/lib/progress";
+import { fmtLoad, formatSets } from "@/lib/progress";
 import { formatDate, formatDuration } from "@/lib/time";
-import { DAY_BY_KEY } from "@/plan";
+import { DAY_BY_KEY, EXERCISE_BY_SLUG } from "@/plan";
 import { Stat } from "./ui";
 
 export function SummaryCard({ summary, editHref, showSets = false }: { summary: SessionSummary; editHref?: string; showSets?: boolean }) {
@@ -33,7 +33,7 @@ export function SummaryCard({ summary, editHref, showSets = false }: { summary: 
                 <li key={p.slug} className="flex items-center justify-between rounded-[12px] bg-pr/10 px-3 py-2">
                   <span className="text-sm font-semibold text-text">{p.name}</span>
                   <span className="font-display tnum text-[24px] text-pr">
-                    {fmtKg(p.weight)} × {p.reps}
+                    {fmtLoad(p.weight, !!EXERCISE_BY_SLUG[p.slug]?.bodyweight)} × {p.reps}
                     <span className="ml-2 text-[13px] font-bold text-muted">e1RM {Math.round(p.e1rm)}</span>
                   </span>
                 </li>
@@ -52,8 +52,8 @@ export function SummaryCard({ summary, editHref, showSets = false }: { summary: 
                 <li key={h.slug} className="flex items-center justify-between rounded-[12px] bg-surface-2 px-3 py-2">
                   <span className="text-sm font-semibold text-text">{h.name}</span>
                   <span className="font-display tnum text-[24px] text-accent">
-                    {fmtKg(h.from)} → {fmtKg(h.to)}
-                    <span className="ml-1 text-[13px] font-bold text-muted">kg{h.bodyweight ? " added" : ""}</span>
+                    {fmtLoad(h.from, h.bodyweight)} → {fmtLoad(h.to, h.bodyweight)}
+                    <span className="ml-1 text-[13px] font-bold text-muted">kg</span>
                   </span>
                 </li>
               ))}
@@ -70,7 +70,7 @@ export function SummaryCard({ summary, editHref, showSets = false }: { summary: 
                 return (
                   <li key={ex.slug} className="flex items-baseline justify-between gap-3 py-1">
                     <span className="text-sm text-text">{ex.name}</span>
-                    <span className="tnum shrink-0 text-sm text-muted">{sets.length ? formatSets(sets) : "—"}</span>
+                    <span className="tnum shrink-0 text-sm text-muted">{sets.length ? formatSets(sets, !!ex.bodyweight) : "—"}</span>
                   </li>
                 );
               })}

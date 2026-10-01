@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fmtKg } from "@/lib/progress";
+import { fmtKg, fmtLoad } from "@/lib/progress";
 
 export type RowStatus = "idle" | "saving" | "done" | "error";
 
@@ -28,6 +28,9 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
   const canConfirm = weight !== null || bodyweight;
   const range = reps < repMin ? "below" : reps > repMax ? "above" : "in";
   const lighter = lastWeight !== undefined && weight !== null && weight < lastWeight;
+  // A bodyweight exercise stores the added load; 0 means plain bodyweight.
+  const load = weight ?? 0;
+  const unit = bodyweight ? (load > 0 ? "kg added" : "bodyweight") : "kg";
 
   if (done) {
     return (
@@ -35,12 +38,12 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
         type="button"
         onClick={onUnconfirm}
         className="anim-pop flex h-16 w-full items-center gap-3 rounded-[14px] bg-accent px-4 text-accent-ink"
-        aria-label={`Set ${index} done: ${fmtKg(weight ?? 0)} kg × ${reps}.${range === "below" ? ` Below target ${repMin} to ${repMax} reps.` : range === "above" ? ` Above target ${repMin} to ${repMax} reps.` : ""}${lighter ? ` Lighter than last time (${fmtKg(lastWeight)} kg).` : ""} Tap to edit`}
+        aria-label={`Set ${index} done: ${bodyweight ? (load > 0 ? `bodyweight plus ${fmtKg(load)} kg` : "bodyweight") : `${fmtKg(load)} kg`} × ${reps}.${range === "below" ? ` Below target ${repMin} to ${repMax} reps.` : range === "above" ? ` Above target ${repMin} to ${repMax} reps.` : ""}${lighter ? ` Lighter than last time (${fmtLoad(lastWeight, bodyweight)}${bodyweight ? "" : " kg"}).` : ""} Tap to edit`}
       >
         <span className="w-6 text-left text-sm font-bold opacity-70">{index}</span>
         <span className="font-display flex-1 text-left text-[30px]">
-          {fmtKg(weight ?? 0)}
-          <span className="ml-1 text-[16px] font-bold opacity-70">kg</span>
+          {fmtLoad(load, bodyweight)}
+          {(!bodyweight || load > 0) && <span className="ml-1 text-[16px] font-bold opacity-70">kg</span>}
           <span className="mx-3 opacity-50">×</span>
           {reps}
           {perSide && <span className="ml-1 text-[16px] font-bold opacity-70">/ side</span>}
@@ -48,7 +51,7 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
         {(range !== "in" || lighter) && (
           <span className="flex shrink-0 flex-col items-end gap-1" aria-hidden="true">
             {range !== "in" && <Flag>{range === "below" ? "▼ reps" : "▲ reps"}</Flag>}
-            {lighter && <Flag>▼ kg</Flag>}
+            {lighter && <Flag>{bodyweight ? "▼ load" : "▼ kg"}</Flag>}
           </span>
         )}
         <CheckIcon />
@@ -67,8 +70,8 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_52px] items-center gap-2 pt-2">
         <Stepper
           value={weight}
-          display={weight === null ? "—" : fmtKg(weight)}
-          unit="kg"
+          display={weight === null ? "—" : bodyweight ? (weight > 0 ? `+${fmtKg(weight)}` : "BW") : fmtKg(weight)}
+          unit={unit}
           big={active}
           onDec={() => onChange({ weight: Math.max(0, (weight ?? 0) - stepKg) })}
           onInc={() => onChange({ weight: (weight ?? 0) + stepKg })}

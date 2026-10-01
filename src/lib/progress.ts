@@ -19,15 +19,24 @@ export function topWeight(sets: Pick<SetLogRow, "weight_kg">[]): number {
   return sets.reduce((best, s) => Math.max(best, Number(s.weight_kg)), 0);
 }
 
-/** "60 × 10, 10, 9" or "60 × 10, 62.5 × 8" when weights differ. */
-export function formatSets(sets: Pick<SetLogRow, "weight_kg" | "reps" | "set_index">[]): string {
+/**
+ * "60 × 10, 10, 9" or "60 × 10, 62.5 × 8" when weights differ.
+ * For a bodyweight exercise the weight is the added load: "BW × 10, 10, 9" or "BW +5 × 8, BW × 10".
+ */
+export function formatSets(sets: Pick<SetLogRow, "weight_kg" | "reps" | "set_index">[], bodyweight = false): string {
   const sorted = [...sets].sort((a, b) => a.set_index - b.set_index);
   if (sorted.length === 0) return "";
   const weights = new Set(sorted.map((s) => Number(s.weight_kg)));
   if (weights.size === 1) {
-    return `${fmtKg(Number(sorted[0].weight_kg))} × ${sorted.map((s) => s.reps).join(", ")}`;
+    return `${fmtLoad(Number(sorted[0].weight_kg), bodyweight)} × ${sorted.map((s) => s.reps).join(", ")}`;
   }
-  return sorted.map((s) => `${fmtKg(Number(s.weight_kg))} × ${s.reps}`).join(", ");
+  return sorted.map((s) => `${fmtLoad(Number(s.weight_kg), bodyweight)} × ${s.reps}`).join(", ");
+}
+
+/** "60" for a weighted exercise; "BW" or "BW +5" when the exercise is done at bodyweight and the number is the added load. */
+export function fmtLoad(n: number, bodyweight: boolean): string {
+  if (!bodyweight) return fmtKg(n);
+  return n > 0 ? `BW +${fmtKg(n)}` : "BW";
 }
 
 export function fmtKg(n: number): string {

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { loadExerciseHistory } from "@/lib/progressData";
-import { fmtKg, formatSets } from "@/lib/progress";
+import { fmtKg, fmtLoad, formatSets } from "@/lib/progress";
 import { formatDate } from "@/lib/time";
 import { EXERCISE_BY_SLUG, targetLabel } from "@/plan";
 import { ExerciseChart } from "@/components/charts";
@@ -32,13 +32,14 @@ export default async function ExercisePage({ params }: { params: Promise<{ slug:
             </div>
             <div className="text-right">
               <div className="font-display tnum text-[34px] text-pr">
-                {fmtKg(bestWeight)} <span className="text-[16px] text-muted">kg</span>
+                {fmtLoad(bestWeight, !!ex.bodyweight)}
+                {(!ex.bodyweight || bestWeight > 0) && <span className="text-[16px] text-muted"> kg</span>}
               </div>
-              <div className="tnum text-[13px] text-muted">e1RM {Math.round(best.e1rm)} kg</div>
+              <div className="tnum text-[13px] text-muted">{ex.bodyweight ? `e1RM ${fmtKg(Math.round(best.e1rm))} kg added` : `e1RM ${Math.round(best.e1rm)} kg`}</div>
             </div>
           </div>
         )}
-        <ExerciseChart points={sessions.map((s) => ({ date: s.session_date, topWeight: s.topWeight, e1rm: Math.round(s.e1rm * 10) / 10 }))} />
+        <ExerciseChart bodyweight={!!ex.bodyweight} points={sessions.map((s) => ({ date: s.session_date, topWeight: s.topWeight, e1rm: Math.round(s.e1rm * 10) / 10 }))} />
         {sessions.length === 0 ? (
           <Empty title="No history yet" />
         ) : (
@@ -46,7 +47,7 @@ export default async function ExercisePage({ params }: { params: Promise<{ slug:
             {sessions.map((s) => (
               <li key={s.session_id} className="flex items-center justify-between px-4 py-3">
                 <span className="text-sm text-muted">{formatDate(s.session_date, { weekday: "short", day: "numeric", month: "short" })}</span>
-                <span className="tnum text-[15px] font-medium text-text">{formatSets(s.sets)}</span>
+                <span className="tnum text-[15px] font-medium text-text">{formatSets(s.sets, !!ex.bodyweight)}</span>
               </li>
             ))}
           </ul>

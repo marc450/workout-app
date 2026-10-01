@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Bar, BarChart, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { fmtKg } from "@/lib/progress";
+import { fmtLoad } from "@/lib/progress";
 import { formatDate } from "@/lib/time";
 
 const ACCENT = "#C8FF2E";
@@ -11,8 +11,10 @@ const SURFACE2 = "#1C1C1F";
 
 type Point = { date: string; topWeight: number; e1rm: number };
 
-export function ExerciseChart({ points }: { points: Point[] }) {
+/** `bodyweight`: the numbers are added load on top of bodyweight, so label them that way. */
+export function ExerciseChart({ points, bodyweight = false }: { points: Point[]; bodyweight?: boolean }) {
   const [mode, setMode] = useState<"topWeight" | "e1rm">("topWeight");
+  const label = (m: "topWeight" | "e1rm") => (m === "topWeight" ? (bodyweight ? "Added load" : "Top set") : bodyweight ? "Est. 1RM added" : "Est. 1RM");
   const data = [...points].sort((a, b) => (a.date < b.date ? -1 : 1));
   return (
     <div className="rounded-card bg-surface p-4">
@@ -25,7 +27,7 @@ export function ExerciseChart({ points }: { points: Point[] }) {
             onClick={() => setMode(m)}
             className={`h-10 flex-1 rounded-full text-sm font-semibold ${mode === m ? "bg-text text-bg" : "text-muted"}`}
           >
-            {m === "topWeight" ? "Top set" : "Est. 1RM"}
+            {label(m)}
           </button>
         ))}
       </div>
@@ -41,7 +43,7 @@ export function ExerciseChart({ points }: { points: Point[] }) {
                 cursor={{ stroke: SURFACE2 }}
                 contentStyle={{ background: SURFACE2, border: "none", borderRadius: 12, color: "#F4F4F2", fontSize: 13 }}
                 labelFormatter={(d) => formatDate(String(d), { weekday: "short", day: "numeric", month: "short" })}
-                formatter={(v) => [`${fmtKg(Number(v))} kg`, mode === "topWeight" ? "Top set" : "Est. 1RM"]}
+                formatter={(v) => [`${fmtLoad(Number(v), bodyweight)}${!bodyweight || Number(v) > 0 ? " kg" : ""}`, label(mode)]}
               />
               <Line type="monotone" dataKey={mode} stroke={ACCENT} strokeWidth={2.5} dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }} activeDot={{ r: 5, fill: ACCENT, strokeWidth: 0 }} isAnimationActive={false} />
             </LineChart>

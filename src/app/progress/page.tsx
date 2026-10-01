@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { loadExerciseCounts, loadHistory, loadWeeklyVolume } from "@/lib/progressData";
-import { fmtKg } from "@/lib/progress";
+import { fmtLoad } from "@/lib/progress";
 import { formatDate, formatDuration } from "@/lib/time";
 import { DAY_BY_KEY, PLAN } from "@/plan";
 import { Sparkline, VolumeBars } from "@/components/charts";
@@ -54,7 +54,8 @@ async function Exercises() {
                     <span className="tnum shrink-0 text-sm text-muted">
                       {c ? (
                         <>
-                          <span className="font-display text-[22px] text-text">{fmtKg(c.best)}</span> kg · {c.sessions}×
+                          <span className="font-display text-[22px] text-text">{fmtLoad(c.best, !!ex.bodyweight)}</span>
+                          {(!ex.bodyweight || c.best > 0) && " kg"} · {c.sessions}×
                         </>
                       ) : (
                         "—"

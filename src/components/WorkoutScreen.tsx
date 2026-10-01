@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { confirmSet, ensureSession, finishSession, unconfirmSet } from "@/app/actions";
 import type { LastResult, WorkoutData } from "@/lib/data";
-import { fmtKg, formatSets, round2, setVolume } from "@/lib/progress";
+import { fmtKg, fmtLoad, formatSets, round2, setVolume } from "@/lib/progress";
 import { formatClock, formatDate, formatDuration } from "@/lib/time";
 import { DAY_BY_KEY, targetLabel, type Exercise } from "@/plan";
 import { type BurstOrigin, Confetti, centerOf, prefersReducedMotion } from "./Celebration";
@@ -270,9 +270,9 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                       type="button"
                       onClick={() => applyHint(ex, hint)}
                       className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-[13px] font-bold text-accent-ink active:opacity-80"
-                      aria-label={`Apply progression: ${fmtKg(hint)} kg`}
+                      aria-label={`Apply progression: ${ex.bodyweight ? `bodyweight plus ${fmtKg(hint)} kg` : `${fmtKg(hint)} kg`}`}
                     >
-                      +{fmtKg(ex.incrementKg)} kg{ex.bodyweight ? " added" : ""} → {fmtKg(hint)}
+                      +{fmtKg(ex.incrementKg)} kg{ex.bodyweight ? " added" : ""} → {fmtLoad(hint, !!ex.bodyweight)}
                     </button>
                   )}
                 </div>
@@ -284,10 +284,10 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                 <div className="mt-1 text-[13px] text-muted">
                   {last ? (
                     <span className="tnum">
-                      Last ({formatDate(last.session_date, { day: "numeric", month: "short" })}): <span className="text-text/80">{formatSets(last.sets)}</span>
+                      Last ({formatDate(last.session_date, { day: "numeric", month: "short" })}): <span className="text-text/80">{formatSets(last.sets, !!ex.bodyweight)}</span>
                     </span>
                   ) : (
-                    <span>First time. Enter a weight.</span>
+                    <span>{ex.bodyweight ? "First time. Bodyweight, add kg only if you use extra load." : "First time. Enter a weight."}</span>
                   )}
                 </div>
                 {beat !== undefined && (
