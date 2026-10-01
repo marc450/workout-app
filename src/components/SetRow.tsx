@@ -28,8 +28,8 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
   const canConfirm = weight !== null || bodyweight;
   const range = reps < repMin ? "below" : reps > repMax ? "above" : "in";
   const lighter = lastWeight !== undefined && weight !== null && weight < lastWeight;
-  // Below-target reps or a lighter load than last time: the set counts, but the card is toned down.
-  const flawed = range === "below" || lighter;
+  // Reps outside the target range or a lighter load than last time: the set counts, but the card is toned down.
+  const flawed = range !== "in" || lighter;
   // A bodyweight exercise stores the added load; 0 means plain bodyweight.
   const load = weight ?? 0;
   const unit = bodyweight ? (load > 0 ? "kg added" : "bodyweight") : "kg";
