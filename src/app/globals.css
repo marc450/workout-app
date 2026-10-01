@@ -8,8 +8,8 @@
   --text: #f4f4f2;
   --text-muted: #8b8b90;
   --accent: #c8ff2e;
-  /* The accent at 70% over the surface: the tone a done set takes when it fell short. */
-  --accent-dim: #93b928;
+  /* The accent at 50% over the surface: the tone a done set takes when it fell short. */
+  --accent-dim: #6e8a22;
   --accent-ink: #0a0a0b;
   --danger: #ff5b4a;
   --pr: #ffd23f;
