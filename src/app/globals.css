@@ -8,6 +8,7 @@
   --text: #f4f4f2;
   --text-muted: #8b8b90;
   --accent: #c8ff2e;
+  --accent-dim: #a3d126;
   --accent-ink: #0a0a0b;
   --danger: #ff5b4a;
   --pr: #ffd23f;
@@ -26,6 +27,7 @@
   --color-text: var(--text);
   --color-muted: var(--text-muted);
   --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
   --color-accent-ink: var(--accent-ink);
   --color-danger: var(--danger);
   --color-pr: var(--pr);
