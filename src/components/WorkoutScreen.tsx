@@ -259,7 +259,6 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
           const last = data.last[ex.slug];
           const hint = data.hints[ex.slug];
           const isCurrent = ex.slug === currentSlug;
-          const complete = activeIdx === -1;
           const beat = beats[ex.slug];
           return (
             <section
@@ -267,7 +266,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
               ref={(el) => {
                 cardRefs.current[ex.slug] = el;
               }}
-              className={`scroll-mt-4 rounded-card bg-surface p-3 transition-opacity ${complete ? "opacity-70" : ""}`}
+              className="scroll-mt-4 rounded-card bg-surface p-3"
               aria-label={ex.name}
             >
               <div className="px-1 pt-1">
