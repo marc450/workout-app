@@ -54,8 +54,8 @@ async function Exercises() {
                     <span className="tnum shrink-0 text-sm text-muted">
                       {c ? (
                         <>
-                          <span className="font-display text-[22px] text-text">{fmtLoad(c.best, !!ex.bodyweight)}</span>
-                          {(!ex.bodyweight || c.best > 0) && " kg"} · {c.sessions}×
+                          <span className="font-display text-[22px] text-text">{ex.bodyweight ? `${fmtLoad(c.best.weight, true)} × ${c.best.reps}` : fmtLoad(c.topWeight, false)}</span>
+                          {!ex.bodyweight && " kg"} · {c.sessions}×
                         </>
                       ) : (
                         "—"

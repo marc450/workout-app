@@ -19,6 +19,32 @@ export function topWeight(sets: Pick<SetLogRow, "weight_kg">[]): number {
   return sets.reduce((best, s) => Math.max(best, Number(s.weight_kg)), 0);
 }
 
+export function totalReps(sets: Pick<SetLogRow, "reps">[]): number {
+  return sets.reduce((sum, s) => sum + s.reps, 0);
+}
+
+export type BestSet = { weight: number; reps: number };
+
+/**
+ * Positive when `a` ranks above `b`. Weighted exercises rank by Epley e1RM.
+ * Bodyweight exercises rank by added load first and reps at that load second:
+ * once reps top out the plan adds load, so a heavier set with fewer reps is still progress.
+ */
+export function compareBest(a: BestSet, b: BestSet, bodyweight: boolean): number {
+  if (bodyweight) return a.weight - b.weight || a.reps - b.reps;
+  return epley(a.weight, a.reps) - epley(b.weight, b.reps);
+}
+
+/** The set that ranks a session, per `compareBest`. */
+export function bestSet(sets: Pick<SetLogRow, "weight_kg" | "reps">[], bodyweight: boolean): BestSet | null {
+  let best: BestSet | null = null;
+  for (const s of sets) {
+    const cand = { weight: Number(s.weight_kg), reps: s.reps };
+    if (best === null || compareBest(cand, best, bodyweight) > 0) best = cand;
+  }
+  return best;
+}
+
 /**
  * "60 × 10, 10, 9" or "60 × 10, 62.5 × 8" when weights differ.
  * For a bodyweight exercise the weight is the added load: "BW × 10, 10, 9" or "BW +5 × 8, BW × 10".
@@ -64,9 +90,12 @@ export type ExerciseSessionSummary = {
   session_id: string;
   session_date: string;
   sets: SetLogRow[];
+  bodyweight: boolean;
+  best: BestSet;
   topWeight: number;
   e1rm: number;
   volume: number;
+  totalReps: number;
 };
 
 /** Group logs by exercise slug, then by session (ordered newest first). */
@@ -81,13 +110,17 @@ export function groupByExerciseSession(
   }
   const out: Record<string, ExerciseSessionSummary[]> = {};
   for (const slug of Object.keys(bySlug)) {
+    const bodyweight = !!EXERCISE_BY_SLUG[slug]?.bodyweight;
     const sessions = Object.entries(bySlug[slug]).map(([session_id, sets]) => ({
       session_id,
       session_date: sessionDates[session_id] ?? "",
       sets: sets.sort((a, b) => a.set_index - b.set_index),
+      bodyweight,
+      best: bestSet(sets, bodyweight) as BestSet, // sets is never empty here
       topWeight: topWeight(sets),
       e1rm: bestE1rm(sets),
       volume: setVolume(sets),
+      totalReps: totalReps(sets),
     }));
     sessions.sort((a, b) => (a.session_date < b.session_date ? 1 : a.session_date > b.session_date ? -1 : 0));
     out[slug] = sessions;
@@ -95,9 +128,22 @@ export function groupByExerciseSession(
   return out;
 }
 
-export type PrHit = { slug: string; name: string; e1rm: number; previousBest: number; weight: number; reps: number };
+export type PrHit = {
+  slug: string;
+  name: string;
+  bodyweight: boolean;
+  /** The set that set the record. */
+  weight: number;
+  reps: number;
+  e1rm: number;
+  /** The best set before this session. */
+  previous: BestSet;
+};
 
-/** PRs in the given session: best e1RM beats every previous session (requires at least one previous session). */
+/**
+ * PRs in the given session: its best set beats every previous session's (requires at least one previous session).
+ * Weighted exercises compare by e1RM, bodyweight exercises by added load then reps (see `compareBest`).
+ */
 export function sessionPrs(
   sessionId: string,
   grouped: Record<string, ExerciseSessionSummary[]>,
@@ -105,13 +151,12 @@ export function sessionPrs(
   const hits: PrHit[] = [];
   for (const [slug, sessions] of Object.entries(grouped)) {
     const current = sessions.find((s) => s.session_id === sessionId);
-    if (!current || current.e1rm <= 0) continue;
+    if (!current || (!current.bodyweight && current.e1rm <= 0)) continue;
     const previous = sessions.filter((s) => s.session_id !== sessionId && s.session_date <= current.session_date);
     if (previous.length === 0) continue;
-    const previousBest = Math.max(...previous.map((s) => s.e1rm));
-    if (current.e1rm > previousBest) {
-      const best = current.sets.reduce((b, s) => (epley(Number(s.weight_kg), s.reps) > epley(Number(b.weight_kg), b.reps) ? s : b), current.sets[0]);
-      hits.push({ slug, name: EXERCISE_BY_SLUG[slug]?.name ?? slug, e1rm: current.e1rm, previousBest, weight: Number(best.weight_kg), reps: best.reps });
+    const previousBest = previous.map((s) => s.best).reduce((b, s) => (compareBest(s, b, current.bodyweight) > 0 ? s : b));
+    if (compareBest(current.best, previousBest, current.bodyweight) > 0) {
+      hits.push({ slug, name: EXERCISE_BY_SLUG[slug]?.name ?? slug, bodyweight: current.bodyweight, ...current.best, e1rm: current.e1rm, previous: previousBest });
     }
   }
   return hits;

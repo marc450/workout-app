@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { confirmSet, ensureSession, finishSession, unconfirmSet } from "@/app/actions";
 import type { LastResult, WorkoutData } from "@/lib/data";
-import { fmtKg, fmtLoad, formatSets, round2, setVolume } from "@/lib/progress";
+import { fmtKg, fmtLoad, formatSets, round2, setVolume, totalReps } from "@/lib/progress";
 import { formatClock, formatDate, formatDuration } from "@/lib/time";
 import { DAY_BY_KEY, targetLabel, type Exercise } from "@/plan";
 import { type BurstOrigin, Confetti, centerOf, prefersReducedMotion } from "./Celebration";
@@ -24,22 +24,30 @@ function doneVolume(rows: Row[]): number {
   return rows.reduce((sum, r) => (r.status === "done" ? sum + (r.weight ?? 0) * r.reps : sum), 0);
 }
 
+/** Total reps across the confirmed sets. */
+function doneReps(rows: Row[]): number {
+  return rows.reduce((sum, r) => (r.status === "done" ? sum + r.reps : sum), 0);
+}
+
 /**
- * How many kg of total volume the exercise beat its previous session by,
- * or null when it isn't complete yet, has no previous session, or didn't beat it.
+ * How much the exercise beat its previous session by: kg of total volume, or total reps for a bodyweight exercise.
+ * Null when it isn't complete yet, has no previous session, or didn't beat it.
  */
-function beatBy(rows: Row[], last: LastResult | undefined): number | null {
+function beatBy(rows: Row[], last: LastResult | undefined, bodyweight: boolean): number | null {
   if (!last || last.sets.length === 0 || rows.some((r) => r.status !== "done")) return null;
-  const delta = round2(doneVolume(rows) - setVolume(last.sets));
+  const delta = bodyweight ? doneReps(rows) - totalReps(last.sets) : round2(doneVolume(rows) - setVolume(last.sets));
   return delta > 0 ? delta : null;
 }
 
-/** Session volume against the sum of every exercise's previous session; null when any exercise lifted today has no history. */
+/**
+ * Session volume against the sum of every exercise's previous session; null when any exercise lifted today has no history.
+ * Bodyweight exercises are left out: their kg volume is only the added load and says nothing about progress.
+ */
 function sessionDelta(rows: Rows, exercises: Exercise[], last: Record<string, LastResult>): number | null {
   let today = 0;
   let previous = 0;
   for (const ex of exercises) {
-    if (!rows[ex.slug].some((r) => r.status === "done")) continue;
+    if (ex.bodyweight || !rows[ex.slug].some((r) => r.status === "done")) continue;
     const l = last[ex.slug];
     if (!l || l.sets.length === 0) return null;
     today += doneVolume(rows[ex.slug]);
@@ -83,7 +91,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
   const [finished, setFinished] = useState<Finished | null>(null);
   const [bursts, setBursts] = useState<Burst[]>([]);
   // Exercises that already got their confetti (or were complete on load), so an unconfirm + reconfirm doesn't replay it.
-  const [celebrated] = useState(() => new Set(exercises.filter((e) => beatBy(rows[e.slug], data.last[e.slug]) !== null).map((e) => e.slug)));
+  const [celebrated] = useState(() => new Set(exercises.filter((e) => beatBy(rows[e.slug], data.last[e.slug], !!e.bodyweight) !== null).map((e) => e.slug)));
   const [now, setNow] = useState<number | null>(null); // set after mount to avoid a hydration mismatch
   const sessionPromise = useRef<Promise<string | null> | null>(null);
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -157,9 +165,9 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     // Auto-scroll to the next exercise once this one is complete.
     const remaining = rows[ex.slug].filter((r, i) => i !== idx && r.status !== "done").length;
     if (remaining === 0) {
-      // Celebrate the first time this exercise beats its last session's total volume.
+      // Celebrate the first time this exercise beats its last session's total volume (total reps for bodyweight).
       const doneRows = rows[ex.slug].map((r, i) => (i === idx ? { ...r, weight, status: "done" as const } : r));
-      if (!editing && !celebrated.has(ex.slug) && beatBy(doneRows, data.last[ex.slug]) !== null) {
+      if (!editing && !celebrated.has(ex.slug) && beatBy(doneRows, data.last[ex.slug], !!ex.bodyweight) !== null) {
         celebrated.add(ex.slug);
         haptic([20, 40, 20, 40, 40]);
         burst(centerOf(cardRefs.current[ex.slug]), { count: 80, power: 1, spread: 1.2 });
@@ -211,7 +219,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
   const beats = useMemo(() => {
     const out: Record<string, number> = {};
     for (const ex of exercises) {
-      const d = beatBy(rows[ex.slug], data.last[ex.slug]);
+      const d = beatBy(rows[ex.slug], data.last[ex.slug], !!ex.bodyweight);
       if (d !== null) out[ex.slug] = d;
     }
     return out;
@@ -293,7 +301,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                 {beat !== undefined && (
                   <div className="anim-pop mt-2 inline-flex items-center gap-1.5 rounded-full bg-pr/15 px-2.5 py-1 text-[12px] font-bold text-pr" role="status">
                     <span aria-hidden="true">▲</span>
-                    Beat last time · +{fmtKg(beat)} kg total
+                    Beat last time · +{fmtKg(beat)} {ex.bodyweight ? "reps" : "kg"} total
                   </div>
                 )}
                 <NoteEditor slug={ex.slug} initial={data.notes[ex.slug] ?? ""} />

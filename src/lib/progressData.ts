@@ -3,7 +3,7 @@ import { EXERCISE_BY_SLUG, MUSCLE_GROUPS, type MuscleGroup } from "@/plan";
 import { getServerClient } from "./supabase/server";
 import { addDays, isoWeekKey, localDate, weekStart } from "./time";
 import type { SessionRow, SetLogRow } from "./types";
-import { groupByExerciseSession, setVolume, type ExerciseSessionSummary } from "./progress";
+import { type BestSet, compareBest, groupByExerciseSession, setVolume, type ExerciseSessionSummary } from "./progress";
 
 type Joined = SetLogRow & { workout_sessions: { session_date: string } };
 
@@ -40,15 +40,28 @@ export async function loadExerciseHistory(slug: string): Promise<ExerciseSession
   return groupByExerciseSession(logs, dates)[slug] ?? [];
 }
 
+export type ExerciseCount = {
+  sessions: number;
+  /** Heaviest set ever (added load for a bodyweight exercise). */
+  topWeight: number;
+  /** Best set ever, ranked per `compareBest`. */
+  best: BestSet;
+};
+
 /** Which exercises have any history (for the list). */
-export async function loadExerciseCounts(): Promise<Record<string, { sessions: number; best: number }>> {
+export async function loadExerciseCounts(): Promise<Record<string, ExerciseCount>> {
   const { logs, dates } = await allLogs();
   const grouped = groupByExerciseSession(logs, dates);
-  const out: Record<string, { sessions: number; best: number }> = {};
+  const out: Record<string, ExerciseCount> = {};
   for (const [slug, sessions] of Object.entries(grouped)) {
-    out[slug] = { sessions: sessions.length, best: Math.max(...sessions.map((s) => s.topWeight)) };
+    out[slug] = { sessions: sessions.length, topWeight: Math.max(...sessions.map((s) => s.topWeight)), best: bestOf(sessions) };
   }
   return out;
+}
+
+/** The highest-ranked best set across sessions of one exercise. */
+export function bestOf(sessions: ExerciseSessionSummary[]): BestSet {
+  return sessions.map((s) => s.best).reduce((b, s) => (compareBest(s, b, sessions[0].bodyweight) > 0 ? s : b));
 }
 
 export type WeeklyVolume = {
