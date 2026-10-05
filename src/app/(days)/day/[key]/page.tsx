@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { loadSessionOn, loadWeekSummary, loadWorkout } from "@/lib/data";
-import { fmtLoad, formatSets } from "@/lib/progress";
+import { formatGoal, formatSets } from "@/lib/progress";
 import { formatClock, formatDate, isoWeekday, localDate } from "@/lib/time";
 import { DAY_BY_KEY, dayForWeekday, isDayKey, targetLabel } from "@/plan";
 import { ShowingDay } from "@/components/DayNav";
@@ -49,7 +49,7 @@ export default async function DayPage({ params }: { params: Promise<{ key: strin
 
         {day.exercises.map((ex) => {
           const last = data.last[ex.slug];
-          const hint = data.hints[ex.slug];
+          const goal = data.goals[ex.slug];
           return (
             <section key={ex.slug} className="rounded-card bg-surface p-4">
               <h2 className="text-[17px] font-semibold text-text">{ex.name}</h2>
@@ -66,7 +66,12 @@ export default async function DayPage({ params }: { params: Promise<{ key: strin
                   <span>Not trained yet</span>
                 )}
               </div>
-              {hint !== undefined && <div className="mt-1 text-[13px] font-semibold text-accent">Next: {fmtLoad(hint, !!ex.bodyweight)}{ex.bodyweight ? "" : " kg"}</div>}
+              {goal && (
+                <div className="tnum mt-1 text-[13px] font-semibold text-text/90">
+                  Goal <span className={goal.step ? "text-accent" : ""}>{formatGoal(goal, !!ex.bodyweight)}</span>
+                  {!ex.bodyweight && <span className="text-muted"> kg</span>}
+                </div>
+              )}
             </section>
           );
         })}

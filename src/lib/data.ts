@@ -3,7 +3,7 @@ import { DAY_BY_KEY, type DayKey, isDayKey } from "@/plan";
 import { getServerClient } from "./supabase/server";
 import { addDays, localDate, weekStart } from "./time";
 import type { NoteRow, SessionRow, SetLogRow } from "./types";
-import { groupByExerciseSession, progressionHint, sessionHints, sessionPrs, setVolume } from "./progress";
+import { type Goal, groupByExerciseSession, nextGoal, sessionGoals, sessionPrs, setVolume } from "./progress";
 
 export type LastResult = { session_date: string; sets: SetLogRow[] };
 
@@ -14,7 +14,7 @@ export type WorkoutData = {
   logs: SetLogRow[]; // today's logs
   notes: Record<string, string>;
   last: Record<string, LastResult>; // per slug, most recent previous session
-  hints: Record<string, number>; // per slug, suggested weight
+  goals: Record<string, Goal>; // per slug, target for this session from the last one
 };
 
 /** Everything the workout screen needs for one day. */
@@ -58,15 +58,14 @@ export async function loadWorkout(dayKey: DayKey, date: string): Promise<Workout
   }
   for (const l of Object.values(last)) l.sets.sort((a, b) => a.set_index - b.set_index);
 
-  const hints: Record<string, number> = {};
+  const goals: Record<string, Goal> = {};
   for (const ex of DAY_BY_KEY[dayKey].exercises) {
     const l = last[ex.slug];
-    if (!l) continue;
-    const h = progressionHint(ex, l.sets);
-    if (h !== null) hints[ex.slug] = h;
+    const g = l ? nextGoal(ex, l.sets) : null;
+    if (g) goals[ex.slug] = g;
   }
 
-  return { dayKey, date, session, logs, notes, last, hints };
+  return { dayKey, date, session, logs, notes, last, goals };
 }
 
 export type SessionSummary = {
@@ -75,7 +74,7 @@ export type SessionSummary = {
   setsDone: number;
   volume: number;
   prs: ReturnType<typeof sessionPrs>;
-  hints: ReturnType<typeof sessionHints>;
+  goals: ReturnType<typeof sessionGoals>;
   logs: SetLogRow[];
 };
 
@@ -113,7 +112,7 @@ export async function loadSessionSummary(sessionId: string): Promise<SessionSumm
     setsDone: logs.length,
     volume: setVolume(logs),
     prs: sessionPrs(sessionId, grouped),
-    hints: sessionHints(sessionId, grouped),
+    goals: sessionGoals(sessionId, DAY_BY_KEY[s.day_key].exercises, grouped),
     logs,
   };
 }

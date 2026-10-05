@@ -1,12 +1,12 @@
 import Link from "next/link";
 import type { SessionSummary } from "@/lib/data";
-import { fmtLoad, formatSets } from "@/lib/progress";
+import { fmtLoad, formatGoal, formatSets } from "@/lib/progress";
 import { formatDate, formatDuration } from "@/lib/time";
 import { DAY_BY_KEY } from "@/plan";
 import { Stat } from "./ui";
 
 export function SummaryCard({ summary, editHref, showSets = false }: { summary: SessionSummary; editHref?: string; showSets?: boolean }) {
-  const { session, durationMs, setsDone, volume, prs, hints, logs } = summary;
+  const { session, durationMs, setsDone, volume, prs, goals, logs } = summary;
   const day = DAY_BY_KEY[session.day_key];
   const total = day.exercises.reduce((n, e) => n + e.sets, 0);
 
@@ -46,20 +46,30 @@ export function SummaryCard({ summary, editHref, showSets = false }: { summary: 
 
         <div className="mt-6">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">Next time</div>
-          {hints.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">Same weights. Hit the top of every rep range to earn a step up.</p>
+          {goals.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">Log a set to get a goal for next time.</p>
           ) : (
-            <ul className="mt-2 flex flex-col gap-2">
-              {hints.map((h) => (
-                <li key={h.slug} className="flex items-center justify-between rounded-[12px] bg-surface-2 px-3 py-2">
-                  <span className="text-sm font-semibold text-text">{h.name}</span>
-                  <span className="font-display tnum text-[24px] text-accent">
-                    {fmtLoad(h.from, h.bodyweight)} → {fmtLoad(h.to, h.bodyweight)}
-                    <span className="ml-1 text-[13px] font-bold text-muted">kg</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="mt-2 flex flex-col gap-2">
+                {goals.map(({ slug, name, goal, bodyweight }) => (
+                  <li key={slug} className="flex items-center justify-between gap-3 rounded-[12px] bg-surface-2 px-3 py-2">
+                    <span className="text-sm font-semibold text-text">{name}</span>
+                    {goal.step ? (
+                      <span className="font-display tnum shrink-0 text-right text-[24px] leading-tight text-accent">
+                        {fmtLoad(goal.step.from, bodyweight)} → {fmtLoad(goal.step.to, bodyweight)}
+                        <span className="ml-1 text-[13px] font-bold text-muted">kg</span>
+                        <span className="block font-sans text-[12px] font-semibold text-muted">× {goal.sets.map((s) => s.reps).join(", ")}</span>
+                      </span>
+                    ) : (
+                      <span className="tnum shrink-0 text-right text-sm font-semibold text-text/90">{formatGoal(goal, bodyweight)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[12px] text-muted">
+                One more rep per set, up to the top of the range. With every set at the top, the weight goes up.
+              </p>
+            </>
           )}
         </div>
 

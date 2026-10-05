@@ -82,6 +82,44 @@ export function progressionHint(exercise: Exercise, lastSets: Pick<SetLogRow, "w
   return round2(w + exercise.incrementKg);
 }
 
+export type SetGoal = { weight: number; reps: number };
+
+/** Next session's target per planned set. `step` is set when the weight goes up (see `progressionHint`). */
+export type Goal = { sets: SetGoal[]; step: { from: number; to: number } | null };
+
+/**
+ * The goal for the next session, from the last one's sets; null without history.
+ * Earned step: the new weight at repMin on every set. Otherwise the same weight per set
+ * and one more rep, capped at repMax, never below what was done (sets already above the range stay there).
+ * A set missing from last time (fewer sets logged) copies the last logged set.
+ */
+export function nextGoal(exercise: Exercise, lastSets: Pick<SetLogRow, "weight_kg" | "reps" | "set_index">[]): Goal | null {
+  if (lastSets.length === 0) return null;
+  const sorted = [...lastSets].sort((a, b) => a.set_index - b.set_index);
+  const to = progressionHint(exercise, sorted);
+  if (to !== null) {
+    return { sets: Array.from({ length: exercise.sets }, () => ({ weight: to, reps: exercise.repMin })), step: { from: Number(sorted[0].weight_kg), to } };
+  }
+  const sets = Array.from({ length: exercise.sets }, (_, i) => {
+    const prev = sorted.find((s) => s.set_index === i + 1) ?? sorted[sorted.length - 1];
+    return { weight: Number(prev.weight_kg), reps: Math.max(prev.reps, Math.min(prev.reps + 1, exercise.repMax)) };
+  });
+  return { sets, step: null };
+}
+
+/** "16 × 10, 10, 10", formatted like logged sets. */
+export function formatGoal(goal: Goal, bodyweight = false): string {
+  return formatSets(
+    goal.sets.map((s, i) => ({ weight_kg: s.weight, reps: s.reps, set_index: i + 1 })),
+    bodyweight,
+  );
+}
+
+/** Every set logged, each at the goal's weight or heavier and at its reps or more. */
+export function goalHit(goal: Goal, sets: SetGoal[]): boolean {
+  return sets.length >= goal.sets.length && goal.sets.every((g, i) => sets[i].weight >= g.weight && sets[i].reps >= g.reps);
+}
+
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -162,17 +200,15 @@ export function sessionPrs(
   return hits;
 }
 
-export type NextTimeHint = { slug: string; name: string; from: number; to: number; bodyweight: boolean };
+export type NextTimeGoal = { slug: string; name: string; goal: Goal; bodyweight: boolean };
 
-/** Progression hints earned by a session's logs. */
-export function sessionHints(sessionId: string, grouped: Record<string, ExerciseSessionSummary[]>): NextTimeHint[] {
-  const hints: NextTimeHint[] = [];
-  for (const [slug, sessions] of Object.entries(grouped)) {
-    const ex = EXERCISE_BY_SLUG[slug];
-    const current = sessions.find((s) => s.session_id === sessionId);
-    if (!ex || !current) continue;
-    const to = progressionHint(ex, current.sets);
-    if (to !== null) hints.push({ slug, name: ex.name, from: Number(current.sets[0].weight_kg), to, bodyweight: !!ex.bodyweight });
+/** Next session's goal per exercise, set by this session's logs, in plan order. */
+export function sessionGoals(sessionId: string, exercises: Exercise[], grouped: Record<string, ExerciseSessionSummary[]>): NextTimeGoal[] {
+  const goals: NextTimeGoal[] = [];
+  for (const ex of exercises) {
+    const current = grouped[ex.slug]?.find((s) => s.session_id === sessionId);
+    const goal = current ? nextGoal(ex, current.sets) : null;
+    if (goal) goals.push({ slug: ex.slug, name: ex.name, goal, bodyweight: !!ex.bodyweight });
   }
-  return hints;
+  return goals;
 }

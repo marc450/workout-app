@@ -12,6 +12,8 @@ type Props = {
   index: number;
   weight: number | null;
   reps: number;
+  /** This set's target reps from the session goal, if there is one. */
+  goalReps?: number;
   status: RowStatus;
   active: boolean;
   repMin: number;
@@ -23,7 +25,7 @@ type Props = {
   onUnconfirm: () => void;
 };
 
-export function SetRow({ index, weight, reps, status, active, repMin, repMax, bodyweight, perSide, onChange, onConfirm, onUnconfirm }: Props) {
+export function SetRow({ index, weight, reps, goalReps, status, active, repMin, repMax, bodyweight, perSide, onChange, onConfirm, onUnconfirm }: Props) {
   const done = status === "done";
   const canConfirm = weight !== null || bodyweight;
   const range = reps < repMin ? "below" : reps > repMax ? "above" : "in";
@@ -82,6 +84,8 @@ export function SetRow({ index, weight, reps, status, active, repMin, repMax, bo
           value={reps}
           display={String(reps)}
           unit={perSide ? "/side" : "reps"}
+          // Once the reps move off the goal, the label under them says what the goal was.
+          caption={goalReps !== undefined && reps !== goalReps ? `goal ${goalReps}` : undefined}
           big={active}
           onDec={() => onChange({ reps: Math.max(0, reps - 1) })}
           onInc={() => onChange({ reps: reps + 1 })}
@@ -118,6 +122,7 @@ function Stepper({
   value,
   display,
   unit,
+  caption,
   big,
   onDec,
   onInc,
@@ -128,6 +133,7 @@ function Stepper({
   value: number | null;
   display: string;
   unit: string;
+  caption?: string;
   big: boolean;
   onDec: () => void;
   onInc: () => void;
@@ -183,10 +189,10 @@ function Stepper({
             setEditing(true);
           }}
           className="flex h-14 min-w-0 flex-1 flex-col items-center justify-center bg-surface"
-          aria-label={`${display} ${unit}, tap to type`}
+          aria-label={`${display} ${unit}${caption ? `, ${caption}` : ""}, tap to type`}
         >
           <span className={`font-display tnum leading-none transition-colors ${toneClass} ${big ? (long ? "text-[26px]" : "text-[32px]") : long ? "text-[20px]" : "text-[24px]"}`}>{display}</span>
-          <span className="mt-0.5 text-[10px] font-semibold leading-none text-muted">{unit}</span>
+          <span className="mt-0.5 text-[10px] font-semibold leading-none text-muted">{caption ?? unit}</span>
         </button>
       )}
       <button type="button" onClick={onInc} aria-label={`Increase ${unit}`} className="flex h-14 w-9 shrink-0 items-center justify-center rounded-r-[12px] bg-surface text-xl font-bold text-muted active:bg-border">

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { confirmSet, ensureSession, finishSession, unconfirmSet } from "@/app/actions";
 import type { LastResult, WorkoutData } from "@/lib/data";
-import { fmtKg, fmtLoad, round2, setVolume, totalReps } from "@/lib/progress";
+import { fmtKg, formatGoal, type Goal, goalHit, round2, setVolume, totalReps } from "@/lib/progress";
 import { formatClock, formatDate, formatDuration } from "@/lib/time";
 import { DAY_BY_KEY, targetLabel, type Exercise } from "@/plan";
 import { type BurstOrigin, Confetti, centerOf, prefersReducedMotion } from "./Celebration";
@@ -58,6 +58,11 @@ function sessionDelta(rows: Rows, exercises: Exercise[], last: Record<string, La
   return delta > 0 ? delta : null;
 }
 
+/** Every set confirmed and each one at or above its goal. */
+function hitGoal(rows: Row[], goal: Goal | undefined): boolean {
+  return !!goal && rows.every((r) => r.status === "done") && goalHit(goal, rows.map((r) => ({ weight: r.weight ?? 0, reps: r.reps })));
+}
+
 /** The set logged at this index last session, falling back to its final set. */
 function lastSet(last: LastResult | undefined, idx: number) {
   const sets = last?.sets ?? [];
@@ -103,6 +108,8 @@ function initialRows(data: WorkoutData, exercises: Exercise[]): Rows {
       const idx = i + 1;
       const logged = data.logs.find((l) => l.exercise_slug === ex.slug && l.set_index === idx);
       if (logged) return { weight: Number(logged.weight_kg), reps: logged.reps, status: "done" as const };
+      const goal = data.goals[ex.slug]?.sets[i];
+      if (goal) return { weight: goal.weight, reps: goal.reps, status: "idle" as const };
       const prev = lastSet(data.last[ex.slug], idx);
       if (prev) return { weight: Number(prev.weight_kg), reps: prev.reps, status: "idle" as const };
       return { weight: ex.bodyweight ? 0 : null, reps: ex.repMin, status: "idle" as const };
@@ -123,7 +130,9 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
   const [finished, setFinished] = useState<Finished | null>(null);
   const [bursts, setBursts] = useState<Burst[]>([]);
   // Exercises that already got their confetti (or were complete on load), so an unconfirm + reconfirm doesn't replay it.
-  const [celebrated] = useState(() => new Set(exercises.filter((e) => beatBy(rows[e.slug], data.last[e.slug], !!e.bodyweight) !== null).map((e) => e.slug)));
+  const [celebrated] = useState(
+    () => new Set(exercises.filter((e) => beatBy(rows[e.slug], data.last[e.slug], !!e.bodyweight) !== null || hitGoal(rows[e.slug], data.goals[e.slug])).map((e) => e.slug)),
+  );
   const [now, setNow] = useState<number | null>(null); // set after mount to avoid a hydration mismatch
   const sessionPromise = useRef<Promise<string | null> | null>(null);
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -220,9 +229,10 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     // Auto-scroll to the next exercise once this one is complete.
     const remaining = rows[ex.slug].filter((r, i) => i !== idx && r.status !== "done").length;
     if (remaining === 0) {
-      // Celebrate the first time this exercise beats its last session's total volume (total reps for bodyweight).
+      // Celebrate the first time this exercise hits its goal or beats its last session's total volume (total reps for bodyweight).
       const doneRows = rows[ex.slug].map((r, i) => (i === idx ? { ...r, weight, status: "done" as const } : r));
-      if (!editing && !celebrated.has(ex.slug) && beatBy(doneRows, data.last[ex.slug], !!ex.bodyweight) !== null) {
+      const won = beatBy(doneRows, data.last[ex.slug], !!ex.bodyweight) !== null || hitGoal(doneRows, data.goals[ex.slug]);
+      if (!editing && !celebrated.has(ex.slug) && won) {
         celebrated.add(ex.slug);
         haptic([20, 40, 20, 40, 40]);
         burst(centerOf(cardRefs.current[ex.slug]), { count: 80, power: 1, spread: 1.2 });
@@ -245,11 +255,6 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     } catch {
       update(ex.slug, idx, { status: "done" });
     }
-  }
-
-  function applyHint(ex: Exercise, weight: number) {
-    haptic(8);
-    setRows((r) => ({ ...r, [ex.slug]: r[ex.slug].map((row) => (row.status === "done" ? row : { ...row, weight })) }));
   }
 
   async function finish() {
@@ -316,9 +321,10 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
           const exRows = rows[ex.slug];
           const activeIdx = exRows.findIndex((r) => r.status !== "done");
           const last = data.last[ex.slug];
-          const hint = data.hints[ex.slug];
+          const goal = data.goals[ex.slug];
           const isCurrent = ex.slug === currentSlug;
           const beat = beats[ex.slug];
+          const hit = hitGoal(exRows, goal);
           return (
             <section
               key={ex.slug}
@@ -331,15 +337,10 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
               <div className="px-1 pt-1">
                 <div className="flex items-start justify-between gap-3">
                   <h2 className={`text-[17px] font-semibold leading-tight ${isCurrent ? "text-text" : "text-text/90"}`}>{ex.name}</h2>
-                  {hint !== undefined && (
-                    <button
-                      type="button"
-                      onClick={() => applyHint(ex, hint)}
-                      className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-[13px] font-bold text-accent-ink active:opacity-80"
-                      aria-label={`Apply progression: ${ex.bodyweight ? `bodyweight plus ${fmtKg(hint)} kg` : `${fmtKg(hint)} kg`}`}
-                    >
-                      +{fmtKg(ex.incrementKg)} kg{ex.bodyweight ? " added" : ""} → {fmtLoad(hint, !!ex.bodyweight)}
-                    </button>
+                  {goal?.step && (
+                    <span className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-[13px] font-bold text-accent-ink">
+                      +{fmtKg(ex.incrementKg)} kg{ex.bodyweight ? " added" : ""}
+                    </span>
                   )}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-muted">
@@ -347,14 +348,31 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                   <span className="tnum">Rest {formatClock(ex.restSec)}</span>
                   {ex.bodyweight && <span>Bodyweight + load</span>}
                 </div>
-                {/* Last session's sets are already prefilled in the rows, so only a first time needs a word. */}
+                {/* The goal is prefilled in the rows; this line keeps it in view once the rows change. */}
+                {goal && (
+                  <div className="tnum mt-1 text-[13px] font-semibold text-text/90">
+                    Goal <span className={goal.step ? "text-accent" : ""}>{formatGoal(goal, !!ex.bodyweight)}</span>
+                    {!ex.bodyweight && <span className="text-muted"> kg</span>}
+                  </div>
+                )}
+                {/* No history means no goal, so a first time needs a word. */}
                 {!last && (
                   <div className="mt-1 text-[13px] text-muted">{ex.bodyweight ? "First time. Bodyweight, add kg only if you use extra load." : "First time. Enter a weight."}</div>
                 )}
-                {beat !== undefined && (
-                  <div className="anim-pop mt-2 inline-flex items-center gap-1.5 rounded-full bg-pr/15 px-2.5 py-1 text-[12px] font-bold text-pr" role="status">
-                    <span aria-hidden="true">▲</span>
-                    Beat last time · +{fmtKg(beat)} {ex.bodyweight ? "reps" : "kg"} total
+                {(hit || beat !== undefined) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {hit && (
+                      <div className="anim-pop inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-[12px] font-bold text-accent-ink" role="status">
+                        <span aria-hidden="true">✓</span>
+                        Goal hit
+                      </div>
+                    )}
+                    {beat !== undefined && (
+                      <div className="anim-pop inline-flex items-center gap-1.5 rounded-full bg-pr/15 px-2.5 py-1 text-[12px] font-bold text-pr" role="status">
+                        <span aria-hidden="true">▲</span>
+                        Beat last time · +{fmtKg(beat)} {ex.bodyweight ? "reps" : "kg"} total
+                      </div>
+                    )}
                   </div>
                 )}
                 <NoteEditor slug={ex.slug} initial={data.notes[ex.slug] ?? ""} />
@@ -366,6 +384,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                     index={i + 1}
                     weight={row.weight}
                     reps={row.reps}
+                    goalReps={goal?.sets[i]?.reps}
                     status={row.status}
                     active={i === activeIdx}
                     repMin={ex.repMin}
