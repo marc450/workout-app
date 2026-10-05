@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { confirmSet, ensureSession, finishSession, unconfirmSet } from "@/app/actions";
 import type { LastResult, WorkoutData } from "@/lib/data";
-import { fmtKg, fmtLoad, formatSets, round2, setVolume, totalReps } from "@/lib/progress";
+import { fmtKg, fmtLoad, round2, setVolume, totalReps } from "@/lib/progress";
 import { formatClock, formatDate, formatDuration } from "@/lib/time";
 import { DAY_BY_KEY, targetLabel, type Exercise } from "@/plan";
 import { type BurstOrigin, Confetti, centerOf, prefersReducedMotion } from "./Celebration";
@@ -347,15 +347,10 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                   <span className="tnum">Rest {formatClock(ex.restSec)}</span>
                   {ex.bodyweight && <span>Bodyweight + load</span>}
                 </div>
-                <div className="mt-1 text-[13px] text-muted">
-                  {last ? (
-                    <span className="tnum">
-                      Last ({formatDate(last.session_date, { day: "numeric", month: "short" })}): <span className="text-text/80">{formatSets(last.sets, !!ex.bodyweight)}</span>
-                    </span>
-                  ) : (
-                    <span>{ex.bodyweight ? "First time. Bodyweight, add kg only if you use extra load." : "First time. Enter a weight."}</span>
-                  )}
-                </div>
+                {/* Last session's sets are already prefilled in the rows, so only a first time needs a word. */}
+                {!last && (
+                  <div className="mt-1 text-[13px] text-muted">{ex.bodyweight ? "First time. Bodyweight, add kg only if you use extra load." : "First time. Enter a weight."}</div>
+                )}
                 {beat !== undefined && (
                   <div className="anim-pop mt-2 inline-flex items-center gap-1.5 rounded-full bg-pr/15 px-2.5 py-1 text-[12px] font-bold text-pr" role="status">
                     <span aria-hidden="true">▲</span>
