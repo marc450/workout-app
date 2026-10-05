@@ -18,20 +18,17 @@ type Props = {
   repMax: number;
   bodyweight: boolean;
   perSide: boolean;
-  /** Weight logged for this set last session, when there was one. */
-  lastWeight?: number;
   onChange: (v: { weight?: number | null; reps?: number }) => void;
   onConfirm: () => void;
   onUnconfirm: () => void;
 };
 
-export function SetRow({ index, weight, reps, status, active, repMin, repMax, bodyweight, perSide, lastWeight, onChange, onConfirm, onUnconfirm }: Props) {
+export function SetRow({ index, weight, reps, status, active, repMin, repMax, bodyweight, perSide, onChange, onConfirm, onUnconfirm }: Props) {
   const done = status === "done";
   const canConfirm = weight !== null || bodyweight;
   const range = reps < repMin ? "below" : reps > repMax ? "above" : "in";
-  const lighter = lastWeight !== undefined && weight !== null && weight < lastWeight;
-  // Reps outside the target range or a lighter load than last time: the set counts, but the card is toned down.
-  const flawed = range !== "in" || lighter;
+  // Reps outside the target range: the set counts, but the card drops to an outline.
+  const offTarget = range !== "in";
   // A bodyweight exercise stores the added load; 0 means plain bodyweight.
   const load = weight ?? 0;
   const unit = bodyweight ? (load > 0 ? "kg added" : "bodyweight") : "kg";
@@ -41,8 +38,8 @@ export function SetRow({ index, weight, reps, status, active, repMin, repMax, bo
       <button
         type="button"
         onClick={onUnconfirm}
-        className={`anim-pop flex h-16 w-full items-center gap-3 rounded-[14px] px-4 text-accent-ink ${flawed ? "bg-warn" : "bg-accent"}`}
-        aria-label={`Set ${index} done: ${bodyweight ? (load > 0 ? `bodyweight plus ${fmtKg(load)} kg` : "bodyweight") : `${fmtKg(load)} kg`} × ${reps}.${range === "below" ? ` Below target ${repMin} to ${repMax} reps.` : range === "above" ? ` Above target ${repMin} to ${repMax} reps.` : ""}${lighter ? ` Lighter than last time (${fmtLoad(lastWeight, bodyweight)}${bodyweight ? "" : " kg"}).` : ""} Tap to edit`}
+        className={`anim-pop flex h-16 w-full items-center gap-3 rounded-[14px] px-4 ${offTarget ? "bg-surface text-accent ring-2 ring-inset ring-accent" : "bg-accent text-accent-ink"}`}
+        aria-label={`Set ${index} done: ${bodyweight ? (load > 0 ? `bodyweight plus ${fmtKg(load)} kg` : "bodyweight") : `${fmtKg(load)} kg`} × ${reps}.${range === "below" ? ` Below target ${repMin} to ${repMax} reps.` : range === "above" ? ` Above target ${repMin} to ${repMax} reps.` : ""} Tap to edit`}
       >
         <span className="w-6 text-left text-sm font-bold opacity-70">{index}</span>
         <span className="font-display flex-1 text-left text-[30px]">
@@ -52,10 +49,9 @@ export function SetRow({ index, weight, reps, status, active, repMin, repMax, bo
           {reps}
           {perSide && <span className="ml-1 text-[16px] font-bold opacity-70">/ side</span>}
         </span>
-        {(range !== "in" || lighter) && (
-          <span className="flex shrink-0 flex-col items-end gap-1" aria-hidden="true">
-            {range !== "in" && <Flag>{range === "below" ? "▼ reps" : "▲ reps"}</Flag>}
-            {lighter && <Flag>{bodyweight ? "▼ load" : "▼ kg"}</Flag>}
+        {offTarget && (
+          <span className="font-sans tnum shrink-0 rounded-md bg-accent/15 px-1.5 py-0.5 text-[11px] font-bold" aria-hidden="true">
+            {reps} / {repMin}–{repMax}
           </span>
         )}
         <CheckIcon />
@@ -198,10 +194,6 @@ function Stepper({
       </button>
     </div>
   );
-}
-
-function Flag({ children }: { children: React.ReactNode }) {
-  return <span className="font-sans rounded-md bg-accent-ink/15 px-1.5 py-0.5 text-[11px] font-bold normal-case tracking-normal">{children}</span>;
 }
 
 function CheckIcon() {

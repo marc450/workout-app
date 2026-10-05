@@ -377,7 +377,6 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                     repMax={ex.repMax}
                     bodyweight={!!ex.bodyweight}
                     perSide={!!ex.perSide}
-                    lastWeight={last ? Number(lastSet(last, i + 1)?.weight_kg) : undefined}
                     onChange={(v) => update(ex.slug, i, v)}
                     onConfirm={() => confirm(ex, i)}
                     onUnconfirm={() => unconfirm(ex, i)}

@@ -8,8 +8,6 @@
   --text: #f4f4f2;
   --text-muted: #8b8b90;
   --accent: #c8ff2e;
-  /* A soft orange between --pr and --danger: the tone a done set takes when it went off plan. */
-  --warn: #ffa94d;
   --accent-ink: #0a0a0b;
   --danger: #ff5b4a;
   --pr: #ffd23f;
@@ -28,7 +26,6 @@
   --color-text: var(--text);
   --color-muted: var(--text-muted);
   --color-accent: var(--accent);
-  --color-warn: var(--warn);
   --color-accent-ink: var(--accent-ink);
   --color-danger: var(--danger);
   --color-pr: var(--pr);
