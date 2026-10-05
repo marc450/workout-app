@@ -1,17 +1,17 @@
 import { loadSessionOn, loadSessionSummary, loadWeekSummary, loadWorkout } from "@/lib/data";
 import { isoWeekday, localDate } from "@/lib/time";
 import { DAY_BY_KEY, dayForWeekday, isDayKey } from "@/plan";
+import { ShowingDay } from "@/components/DayNav";
 import { SummaryCard } from "@/components/SummaryCard";
-import { WeekStrip, WeekSummary } from "@/components/WeekSummary";
+import { WeekSummary } from "@/components/WeekSummary";
 import { WorkoutScreen } from "@/components/WorkoutScreen";
-import { NavLink, TopBar } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ edit?: string; day?: string }> }) {
   const { edit, day: pick } = await searchParams;
   const today = localDate();
-  const [{ session, hasLogs }, week] = await Promise.all([loadSessionOn(today), loadWeekSummary(today)]);
+  const { session, hasLogs } = await loadSessionOn(today);
 
   // Once a set is logged, today's session decides the workout. Before that, ?day= trains another day's workout instead of the scheduled one.
   const sessionDay = session && isDayKey(session.day_key) ? DAY_BY_KEY[session.day_key] : null;
@@ -19,11 +19,12 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const day = (hasLogs ? sessionDay : (pickedDay ?? sessionDay)) ?? dayForWeekday(isoWeekday(today));
 
   if (!day) {
+    const week = await loadWeekSummary(today);
     return (
-      <main className="safe-bottom">
-        <TopBar right={<NavLink href="/progress">Progress</NavLink>} />
+      <div className="safe-bottom">
+        <ShowingDay dayKey={null} />
         <WeekSummary week={week} heading="Rest day" />
-      </main>
+      </div>
     );
   }
 
@@ -34,19 +35,17 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   if (data.session?.finished_at && edit !== "1") {
     const summary = await loadSessionSummary(data.session.id);
     return (
-      <main className="safe-bottom">
-        <TopBar right={<NavLink href="/progress">Progress</NavLink>} />
-        <WeekStrip week={week} currentKey={day.key} />
+      <div className="safe-bottom">
+        <ShowingDay dayKey={day.key} />
         {summary && <SummaryCard summary={summary} editHref="/?edit=1" showSets />}
-      </main>
+      </div>
     );
   }
 
   return (
-    <main>
-      <TopBar right={<NavLink href="/progress">Progress</NavLink>} />
-      <WeekStrip week={week} currentKey={day.key} />
+    <>
+      <ShowingDay dayKey={day.key} />
       <WorkoutScreen key={`${day.key}-${data.session?.id ?? "new"}`} data={data} editing={edit === "1" && !!data.session?.finished_at} />
-    </main>
+    </>
   );
 }
