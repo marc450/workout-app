@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { fmtKg, fmtLoad } from "@/lib/progress";
 
+/** The weight stepper always moves in whole kilos, whatever the exercise's progression jump. */
+const STEP_KG = 1;
+
 export type RowStatus = "idle" | "saving" | "done" | "error";
 
 type Props = {
@@ -11,7 +14,6 @@ type Props = {
   reps: number;
   status: RowStatus;
   active: boolean;
-  stepKg: number;
   repMin: number;
   repMax: number;
   bodyweight: boolean;
@@ -23,7 +25,7 @@ type Props = {
   onUnconfirm: () => void;
 };
 
-export function SetRow({ index, weight, reps, status, active, stepKg, repMin, repMax, bodyweight, perSide, lastWeight, onChange, onConfirm, onUnconfirm }: Props) {
+export function SetRow({ index, weight, reps, status, active, repMin, repMax, bodyweight, perSide, lastWeight, onChange, onConfirm, onUnconfirm }: Props) {
   const done = status === "done";
   const canConfirm = weight !== null || bodyweight;
   const range = reps < repMin ? "below" : reps > repMax ? "above" : "in";
@@ -75,8 +77,8 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
           display={weight === null ? "—" : bodyweight ? (weight > 0 ? `+${fmtKg(weight)}` : "BW") : fmtKg(weight)}
           unit={unit}
           big={active}
-          onDec={() => onChange({ weight: Math.max(0, (weight ?? 0) - stepKg) })}
-          onInc={() => onChange({ weight: (weight ?? 0) + stepKg })}
+          onDec={() => onChange({ weight: Math.max(0, (weight ?? 0) - STEP_KG) })}
+          onInc={() => onChange({ weight: (weight ?? 0) + STEP_KG })}
           onInput={(v) => onChange({ weight: v })}
           decimal
         />

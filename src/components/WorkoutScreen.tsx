@@ -373,7 +373,6 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                     reps={row.reps}
                     status={row.status}
                     active={i === activeIdx}
-                    stepKg={ex.incrementKg}
                     repMin={ex.repMin}
                     repMax={ex.repMax}
                     bodyweight={!!ex.bodyweight}

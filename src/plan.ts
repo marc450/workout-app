@@ -33,7 +33,7 @@ export type Exercise = {
   repMin: number;
   repMax: number;
   restSec: number;
-  incrementKg: number; // step for the +/- stepper and progression hint
+  incrementKg: number; // jump for the progression hint (the stepper always moves 1 kg)
   perSide?: boolean; // reps are per leg or arm, show "/ side"
   bodyweight?: boolean; // weight field means added load, default 0
 };
