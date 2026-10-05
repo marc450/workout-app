@@ -39,7 +39,7 @@ export function SetRow({ index, weight, reps, status, active, stepKg, repMin, re
       <button
         type="button"
         onClick={onUnconfirm}
-        className={`anim-pop flex h-16 w-full items-center gap-3 rounded-[14px] px-4 text-accent-ink ${flawed ? "bg-accent-dim" : "bg-accent"}`}
+        className={`anim-pop flex h-16 w-full items-center gap-3 rounded-[14px] px-4 text-accent-ink ${flawed ? "bg-warn" : "bg-accent"}`}
         aria-label={`Set ${index} done: ${bodyweight ? (load > 0 ? `bodyweight plus ${fmtKg(load)} kg` : "bodyweight") : `${fmtKg(load)} kg`} × ${reps}.${range === "below" ? ` Below target ${repMin} to ${repMax} reps.` : range === "above" ? ` Above target ${repMin} to ${repMax} reps.` : ""}${lighter ? ` Lighter than last time (${fmtLoad(lastWeight, bodyweight)}${bodyweight ? "" : " kg"}).` : ""} Tap to edit`}
       >
         <span className="w-6 text-left text-sm font-bold opacity-70">{index}</span>

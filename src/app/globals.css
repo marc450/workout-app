@@ -8,8 +8,8 @@
   --text: #f4f4f2;
   --text-muted: #8b8b90;
   --accent: #c8ff2e;
-  /* The accent at 50% over the surface: the tone a done set takes when it fell short. */
-  --accent-dim: #6e8a22;
+  /* A soft orange between --pr and --danger: the tone a done set takes when it went off plan. */
+  --warn: #ffa94d;
   --accent-ink: #0a0a0b;
   --danger: #ff5b4a;
   --pr: #ffd23f;
@@ -28,7 +28,7 @@
   --color-text: var(--text);
   --color-muted: var(--text-muted);
   --color-accent: var(--accent);
-  --color-accent-dim: var(--accent-dim);
+  --color-warn: var(--warn);
   --color-accent-ink: var(--accent-ink);
   --color-danger: var(--danger);
   --color-pr: var(--pr);
