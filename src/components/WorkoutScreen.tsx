@@ -64,6 +64,38 @@ function lastSet(last: LastResult | undefined, idx: number) {
   return sets.find((l) => l.set_index === idx) ?? sets[sets.length - 1];
 }
 
+/** A save that has not answered by now is treated as lost (iOS can freeze or drop it when Shortcuts takes over). */
+const SAVE_TIMEOUT_MS = 10_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = window.setTimeout(() => reject(new Error("Timed out")), ms);
+    p.then(
+      (v) => {
+        window.clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(id);
+        reject(e);
+      },
+    );
+  });
+}
+
+/** Resolves once the page is in the foreground again, so a retry doesn't fire while Shortcuts or the Clock app is open. */
+function whenVisible(): Promise<void> {
+  if (document.visibilityState === "visible") return Promise.resolve();
+  return new Promise((resolve) => {
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      document.removeEventListener("visibilitychange", onVis);
+      resolve();
+    };
+    document.addEventListener("visibilitychange", onVis);
+  });
+}
+
 function initialRows(data: WorkoutData, exercises: Exercise[]): Rows {
   const rows: Rows = {};
   for (const ex of exercises) {
@@ -116,15 +148,22 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
   const getSession = useCallback(async (): Promise<string | null> => {
     if (sessionId) return sessionId;
     if (!sessionPromise.current) {
-      sessionPromise.current = ensureSession(data.dayKey).then((res) => {
-        if (!res.ok) {
+      sessionPromise.current = ensureSession(data.dayKey).then(
+        (res) => {
+          if (!res.ok) {
+            sessionPromise.current = null;
+            return null;
+          }
+          setSessionId(res.data.id);
+          setStartedAt(new Date(res.data.started_at).getTime());
+          return res.data.id;
+        },
+        () => {
+          // Network failure: forget the promise so the next attempt asks again.
           sessionPromise.current = null;
           return null;
-        }
-        setSessionId(res.data.id);
-        setStartedAt(new Date(res.data.started_at).getTime());
-        return res.data.id;
-      });
+        },
+      );
     }
     return sessionPromise.current;
   }, [sessionId, data.dayKey]);
@@ -140,23 +179,39 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     setBursts((b) => [...b, { id: `${Date.now()}-${b.length}`, origin, ...opts }]);
   }
 
+  /** Saves one set, retrying once after the page is back in front. The upsert makes a repeat harmless. */
+  async function saveSet(ex: Exercise, idx: number, weight: number, reps: number): Promise<boolean> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await whenVisible();
+      try {
+        const sid = await withTimeout(getSession(), SAVE_TIMEOUT_MS);
+        if (!sid) continue;
+        const res = await withTimeout(confirmSet({ sessionId: sid, exerciseSlug: ex.slug, setIndex: idx + 1, weightKg: round2(weight), reps }), SAVE_TIMEOUT_MS);
+        if (res.ok) return true;
+      } catch {
+        // Dropped or frozen by the switch to Shortcuts, or offline: try again.
+      }
+    }
+    return false;
+  }
+
   async function confirm(ex: Exercise, idx: number) {
     const row = rows[ex.slug][idx];
     const weight = row.weight ?? 0;
+    // Retrying a set that failed to save shouldn't restart the rest or open the Clock app again.
+    const retry = row.status === "error";
     unlockAudio();
     haptic(12);
     update(ex.slug, idx, { status: "saving", weight });
-    rest.start(ex.restSec, ex.name);
-    // Still inside the tap, so iOS lets us hand the rest to the Clock app via Shortcuts.
-    if (clockTimer) openClockTimer(ex.restSec);
-
-    const sid = await getSession();
-    if (!sid) {
-      update(ex.slug, idx, { status: "error" });
-      return;
+    // Send the request before leaving for Shortcuts so it is already on its way.
+    const saved = saveSet(ex, idx, weight, row.reps);
+    if (!retry) {
+      rest.start(ex.restSec, ex.name);
+      // Still inside the tap, so iOS lets us hand the rest to the Clock app via Shortcuts.
+      if (clockTimer) openClockTimer(ex.restSec);
     }
-    const res = await confirmSet({ sessionId: sid, exerciseSlug: ex.slug, setIndex: idx + 1, weightKg: round2(weight), reps: row.reps });
-    if (!res.ok) {
+
+    if (!(await saved)) {
       update(ex.slug, idx, { status: "error" });
       return;
     }
@@ -184,8 +239,12 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     if (!sessionId) return;
     haptic(8);
     update(ex.slug, idx, { status: "saving" });
-    const res = await unconfirmSet({ sessionId, exerciseSlug: ex.slug, setIndex: idx + 1 });
-    update(ex.slug, idx, { status: res.ok ? "idle" : "done" });
+    try {
+      const res = await withTimeout(unconfirmSet({ sessionId, exerciseSlug: ex.slug, setIndex: idx + 1 }), SAVE_TIMEOUT_MS);
+      update(ex.slug, idx, { status: res.ok ? "idle" : "done" });
+    } catch {
+      update(ex.slug, idx, { status: "done" });
+    }
   }
 
   function applyHint(ex: Exercise, weight: number) {
