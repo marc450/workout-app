@@ -27,7 +27,7 @@ export function SetRow({ index, weight, reps, status, active, repMin, repMax, bo
   const done = status === "done";
   const canConfirm = weight !== null || bodyweight;
   const range = reps < repMin ? "below" : reps > repMax ? "above" : "in";
-  // Reps outside the target range: the set counts, but the card drops to an outline.
+  // Reps outside the target range: the set counts, but the card drops to an outline and says by how much.
   const offTarget = range !== "in";
   // A bodyweight exercise stores the added load; 0 means plain bodyweight.
   const load = weight ?? 0;
@@ -51,7 +51,7 @@ export function SetRow({ index, weight, reps, status, active, repMin, repMax, bo
         </span>
         {offTarget && (
           <span className="font-sans tnum shrink-0 rounded-md bg-accent/15 px-1.5 py-0.5 text-[11px] font-bold" aria-hidden="true">
-            {reps} / {repMin}–{repMax}
+            {range === "above" ? repsLabel(reps - repMax, "over") : repsLabel(repMin - reps, "short")}
           </span>
         )}
         <CheckIcon />
@@ -194,6 +194,11 @@ function Stepper({
       </button>
     </div>
   );
+}
+
+/** "1 rep over", "3 reps short". */
+function repsLabel(n: number, word: "over" | "short"): string {
+  return `${n} ${n === 1 ? "rep" : "reps"} ${word}`;
 }
 
 function CheckIcon() {
