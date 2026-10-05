@@ -88,7 +88,8 @@ curl "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/set_logs?select=*" \
 
 ## Behaviour notes
 
-- **Today** opens the workout for the current weekday in Europe/Zurich. Saturday and Sunday show the week summary. Missed weekdays cannot be logged later.
+- **Today** opens the workout for the current weekday in Europe/Zurich. Saturday and Sunday show the week summary.
+- **Other days**: a Mon to Fri strip sits above the workout. Each day opens `/day/<key>` with its exercises, targets and last session's sets. "Train this today" opens `/?day=<key>`, which trains that day's workout instead of the scheduled one (weekends too). One workout per date: once a set is logged, today's session decides the workout; until then, the first confirmed set switches the session's `day_key`. Week tiles match sessions by workout, so a swapped day still shows as done.
 - **Rep range**: while a set is being entered, reps below the exercise's range turn red with a "Below target" line, reps above it turn yellow with an "Add weight next time" line. Done rows show a small ▼ or ▲ after the reps when they were outside the range.
 - **Prefill**: each set row starts with the last session's weight and reps for the same set index.
 - **Bodyweight exercises** (`bodyweight: true` in `src/plan.ts`, e.g. Pull Up): the weight field is the added load, not the total. It shows "BW" at zero and "+2.5 kg added" once load is on, and history reads "BW × 8, 8, 7" or "BW +5 × 8". Logs still store the added load in `weight_kg`. Progress for these exercises is rep-based: the best set is the heaviest added load and then the most reps at it, a PR is a best set that beats every previous session's, "Beat last time" compares total reps, and the exercise chart plots best-set reps and total reps. Their kg volume (added load × reps) still counts towards session and week volume but is left out of the "vs last time" session delta.

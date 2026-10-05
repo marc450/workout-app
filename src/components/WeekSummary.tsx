@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { loadWeekSummary } from "@/lib/data";
+import type { DayKey } from "@/plan";
 import { formatDate } from "@/lib/time";
 import { Stat } from "./ui";
 
@@ -12,6 +13,35 @@ const STATUS: Record<Week["tiles"][number]["status"], { label: string; cls: stri
   today: { label: "Today", cls: "bg-surface-2 text-text" },
   upcoming: { label: "Upcoming", cls: "bg-surface text-muted" },
 };
+
+/** The workout on the home screen opens there; every other day opens its own page. */
+function dayHref(dayKey: DayKey, currentKey: DayKey | null): string {
+  return dayKey === currentKey ? "/" : `/day/${dayKey}`;
+}
+
+/** Compact Mon to Fri row above the workout, so every day of the plan is one tap away. */
+export function WeekStrip({ week, currentKey }: { week: Week; currentKey: DayKey | null }) {
+  return (
+    <nav aria-label="This week" className="grid grid-cols-5 gap-1.5 px-4 pb-2">
+      {week.tiles.map((t) => {
+        const current = t.dayKey === currentKey;
+        const s = STATUS[t.status];
+        return (
+          <Link
+            key={t.date}
+            href={dayHref(t.dayKey, currentKey)}
+            aria-current={current ? "page" : undefined}
+            aria-label={`${formatDate(t.date, { weekday: "long" })}: ${t.title}, ${s.label}`}
+            className={`flex h-12 flex-col items-center justify-center rounded-[12px] ${s.cls} ${current ? "ring-2 ring-inset ring-accent" : ""}`}
+          >
+            <span className="text-[10px] font-semibold uppercase leading-none tracking-wider opacity-70">{formatDate(t.date, { weekday: "short" })}</span>
+            <span className="font-display mt-1 truncate text-[16px] leading-none">{t.title}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 export function WeekSummary({ week, heading = "This week" }: { week: Week; heading?: string }) {
   return (
@@ -33,14 +63,10 @@ export function WeekSummary({ week, heading = "This week" }: { week: Week; headi
               <div className="mt-2 text-[10px] font-semibold uppercase tracking-wider opacity-70">{s.label}</div>
             </>
           );
-          return t.sessionId ? (
-            <Link key={t.date} href={`/progress/session/${t.sessionId}`} className={`flex min-h-[88px] flex-col rounded-[14px] p-2 ${s.cls}`}>
+          return (
+            <Link key={t.date} href={dayHref(t.dayKey, null)} className={`flex min-h-[88px] flex-col rounded-[14px] p-2 ${s.cls}`}>
               {inner}
             </Link>
-          ) : (
-            <div key={t.date} className={`flex min-h-[88px] flex-col rounded-[14px] p-2 ${s.cls}`}>
-              {inner}
-            </div>
           );
         })}
       </div>

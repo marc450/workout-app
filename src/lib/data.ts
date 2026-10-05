@@ -118,6 +118,16 @@ export async function loadSessionSummary(sessionId: string): Promise<SessionSumm
   };
 }
 
+/** Today's session, if one was started, and whether any set is logged in it yet. */
+export async function loadSessionOn(date: string): Promise<{ session: SessionRow | null; hasLogs: boolean }> {
+  const supabase = await getServerClient();
+  const { data } = await supabase.from("workout_sessions").select("*").eq("session_date", date).maybeSingle();
+  const session = (data as SessionRow | null) ?? null;
+  if (!session) return { session: null, hasLogs: false };
+  const { count } = await supabase.from("set_logs").select("id", { count: "exact", head: true }).eq("session_id", session.id);
+  return { session, hasLogs: (count ?? 0) > 0 };
+}
+
 export type WeekTile = { date: string; dayKey: DayKey; title: string; status: "done" | "missed" | "today" | "upcoming" | "in-progress"; sessionId?: string };
 
 export async function loadWeekSummary(today = localDate()) {
@@ -129,7 +139,8 @@ export async function loadWeekSummary(today = localDate()) {
     .select("*")
     .gte("session_date", monday)
     .lte("session_date", friday);
-  const sess = (sessions ?? []) as SessionRow[];
+  // Newest first, so a day trained twice in one week shows its latest session.
+  const sess = ((sessions ?? []) as SessionRow[]).sort((a, b) => b.session_date.localeCompare(a.session_date));
   const ids = sess.map((s) => s.id);
   const { data: logs } = ids.length
     ? await supabase.from("set_logs").select("session_id, weight_kg, reps").in("session_id", ids)
@@ -140,10 +151,10 @@ export async function loadWeekSummary(today = localDate()) {
   for (let i = 0; i < 5; i++) {
     const date = addDays(monday, i);
     const dayKey = (["push", "pull", "legs", "upper", "lower"] as DayKey[])[i];
-    const s = sess.find((x) => x.session_date === date);
-    const hasSets = s ? logRows.some((l) => l.session_id === s.id) : false;
+    // Match by workout, not by date: a day can be trained on another weekday.
+    const s = sess.find((x) => x.day_key === dayKey && (x.finished_at || logRows.some((l) => l.session_id === x.id)));
     let status: WeekTile["status"];
-    if (s && (s.finished_at || hasSets)) status = s.finished_at ? "done" : date === today ? "in-progress" : "done";
+    if (s) status = !s.finished_at && s.session_date === today ? "in-progress" : "done";
     else if (date === today) status = "today";
     else if (date < today) status = "missed";
     else status = "upcoming";

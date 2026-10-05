@@ -14,7 +14,15 @@ export async function ensureSession(dayKey: DayKey): Promise<Result<SessionRow>>
   const supabase = await getServerClient();
   const date = localDate();
   const { data: existing } = await supabase.from("workout_sessions").select("*").eq("session_date", date).maybeSingle();
-  if (existing) return { ok: true, data: existing as SessionRow };
+  if (existing) {
+    const ex = existing as SessionRow;
+    if (ex.day_key === dayKey || ex.finished_at) return { ok: true, data: ex };
+    // Today was opened as another day but nothing is logged yet: switch it to the day being trained now.
+    const { count } = await supabase.from("set_logs").select("id", { count: "exact", head: true }).eq("session_id", ex.id);
+    if (count) return { ok: true, data: ex };
+    const { data: switched } = await supabase.from("workout_sessions").update({ day_key: dayKey }).eq("id", ex.id).select("*").single();
+    return { ok: true, data: (switched as SessionRow | null) ?? ex };
+  }
   const { data, error } = await supabase
     .from("workout_sessions")
     .insert({ day_key: dayKey, session_date: date })
