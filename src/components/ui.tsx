@@ -54,3 +54,25 @@ export function Empty({ title, body }: { title: string; body?: string }) {
 export function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />;
 }
+
+/** A labelled on/off switch in a card, for the settings under the workout header. */
+export function ToggleRow({ title, body, enabled, onChange }: { title: string; body: string; enabled: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="mt-3 flex items-center justify-between gap-3 rounded-card bg-surface px-4 py-3">
+      <div className="min-w-0">
+        <div className="text-[13px] font-semibold text-text">{title}</div>
+        <div className="text-[12px] text-muted">{body}</div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={title}
+        onClick={() => onChange(!enabled)}
+        className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${enabled ? "bg-accent" : "bg-surface-2"}`}
+      >
+        <span className={`absolute top-1 h-6 w-6 rounded-full transition-[left] ${enabled ? "left-7 bg-accent-ink" : "left-1 bg-muted"}`} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}

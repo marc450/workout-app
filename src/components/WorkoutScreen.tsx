@@ -10,14 +10,18 @@ import { DAY_BY_KEY, targetLabel, type Exercise } from "@/plan";
 import { type BurstOrigin, Confetti, centerOf, prefersReducedMotion } from "./Celebration";
 import { ClockTimerSetting } from "./ClockTimerSetting";
 import { NoteEditor } from "./NoteEditor";
+import { type PrevSet, SetBriefing } from "./SetBriefing";
 import { SetRow, type RowStatus } from "./SetRow";
+import { ToggleRow } from "./ui";
 import { openClockTimer, useClockTimerSetting } from "./useClockTimer";
 import { haptic, unlockAudio, useRestTimer, useWakeLock } from "./useRestTimer";
+import { useSetBriefingSetting } from "./useSetBriefing";
 
 type Row = { weight: number | null; reps: number; status: RowStatus };
 type Rows = Record<string, Row[]>;
 type Burst = { id: string; origin: BurstOrigin; count: number; power: number; spread: number };
 type Finished = { volume: number; delta: number | null };
+type SetRef = { slug: string; idx: number }; // idx is 0-based
 
 /** Total kg lifted across the confirmed sets. */
 function doneVolume(rows: Row[]): number {
@@ -62,6 +66,29 @@ function sessionDelta(rows: Rows, exercises: Exercise[], last: Record<string, La
 function lastSet(last: LastResult | undefined, idx: number) {
   const sets = last?.sets ?? [];
   return sets.find((l) => l.set_index === idx) ?? sets[sets.length - 1];
+}
+
+/** A set still to be done: not confirmed, or confirmed but not saved. */
+function pending(r: Row): boolean {
+  return r.status === "idle" || r.status === "error";
+}
+
+/**
+ * The set to brief next. After `from` it is the next pending set of that exercise, then the first pending set of the
+ * exercises that follow, so skipping ahead (a busy machine) is respected. Falls back to the first pending set anywhere.
+ */
+function nextPending(rows: Rows, exercises: Exercise[], from: SetRef | null): SetRef | null {
+  const pos = from ? exercises.findIndex((e) => e.slug === from.slug) : -1;
+  if (from && pos >= 0) {
+    const idx = rows[from.slug].findIndex((r, i) => i > from.idx && pending(r));
+    if (idx >= 0) return { slug: from.slug, idx };
+  }
+  const order = [...exercises.slice(pos + 1), ...exercises.slice(0, pos + 1)];
+  for (const ex of order) {
+    const idx = rows[ex.slug].findIndex(pending);
+    if (idx >= 0) return { slug: ex.slug, idx };
+  }
+  return null;
 }
 
 /** A save that has not answered by now is treated as lost (iOS can freeze or drop it when Shortcuts takes over). */
@@ -122,6 +149,15 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
   const [finishError, setFinishError] = useState<string | null>(null);
   const [finished, setFinished] = useState<Finished | null>(null);
   const [bursts, setBursts] = useState<Burst[]>([]);
+  const [notes, setNotes] = useState<Record<string, string>>(data.notes);
+  const [briefing, setBriefing] = useState<SetRef | null>(null);
+  const [briefingOn, setBriefingOn] = useSetBriefingSetting();
+  // The set confirmed last, so the briefing after the rest follows where the user actually is.
+  const lastConfirmed = useRef<SetRef | null>(null);
+  const rowsRef = useRef<Rows>(rows);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
   // Exercises that already got their confetti (or were complete on load), so an unconfirm + reconfirm doesn't replay it.
   const [celebrated] = useState(() => new Set(exercises.filter((e) => beatBy(rows[e.slug], data.last[e.slug], !!e.bodyweight) !== null).map((e) => e.slug)));
   const [now, setNow] = useState<number | null>(null); // set after mount to avoid a hydration mismatch
@@ -174,6 +210,33 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
 
   const removeBurst = useCallback((id: string) => setBursts((b) => b.filter((x) => x.id !== id)), []);
 
+  /** Shows the briefing for the set that follows `from` (the set just confirmed), or for the first pending one. */
+  const openBriefing = useCallback(
+    (from: SetRef | null) => {
+      const next = nextPending(rowsRef.current, exercises, from);
+      if (!next) return;
+      haptic(8);
+      setBriefing(next);
+    },
+    [exercises],
+  );
+
+  const closeBriefing = useCallback(() => {
+    // Bring the exercise into view when the briefing moved on to a new one.
+    if (briefing && briefing.slug !== lastConfirmed.current?.slug) {
+      cardRefs.current[briefing.slug]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setBriefing(null);
+  }, [briefing]);
+
+  // The rest ran out: the briefing for the next set takes over from the timer bar.
+  const { fired: restFired, stop: restStop } = rest;
+  useEffect(() => {
+    if (!restFired || !briefingOn || editing || finished) return;
+    restStop();
+    openBriefing(lastConfirmed.current);
+  }, [restFired, restStop, briefingOn, editing, finished, openBriefing]);
+
   function burst(origin: BurstOrigin, opts: { count: number; power: number; spread: number }) {
     if (prefersReducedMotion()) return;
     setBursts((b) => [...b, { id: `${Date.now()}-${b.length}`, origin, ...opts }]);
@@ -206,6 +269,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
     // Send the request before leaving for Shortcuts so it is already on its way.
     const saved = saveSet(ex, idx, weight, row.reps);
     if (!retry) {
+      lastConfirmed.current = { slug: ex.slug, idx };
       rest.start(ex.restSec, ex.name);
       // Still inside the tap, so iOS lets us hand the rest to the Clock app via Shortcuts.
       if (clockTimer) openClockTimer(ex.restSec);
@@ -309,6 +373,17 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
           <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${(doneSets / totalSets) * 100}%` }} />
         </div>
         {!editing && <ClockTimerSetting enabled={clockTimer} onChange={setClockTimer} />}
+        {!editing && (
+          <ToggleRow
+            title="Set briefing"
+            body="Target and rules for the next set when the rest ends"
+            enabled={briefingOn}
+            onChange={(v) => {
+              haptic(8);
+              setBriefingOn(v);
+            }}
+          />
+        )}
       </header>
 
       <div className="mt-6 flex flex-col gap-3 px-4">
@@ -342,11 +417,21 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                     </button>
                   )}
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-muted">
+                {/* Tapping the target opens the briefing for this exercise's next set, so the first set of a workout gets one too. */}
+                <button
+                  type="button"
+                  disabled={editing || activeIdx < 0}
+                  onClick={() => {
+                    haptic(8);
+                    setBriefing({ slug: ex.slug, idx: activeIdx });
+                  }}
+                  className="-mx-1 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-[8px] px-1 py-0.5 text-left text-[13px] text-muted active:bg-surface-2 disabled:active:bg-transparent"
+                  aria-label={`${targetLabel(ex)}, rest ${formatClock(ex.restSec)}. Show the briefing for the next set`}
+                >
                   <span className="tnum">{targetLabel(ex)}</span>
                   <span className="tnum">Rest {formatClock(ex.restSec)}</span>
                   {ex.bodyweight && <span>Bodyweight + load</span>}
-                </div>
+                </button>
                 {/* Last session's sets are already prefilled in the rows, so only a first time needs a word. */}
                 {!last && (
                   <div className="mt-1 text-[13px] text-muted">{ex.bodyweight ? "First time. Bodyweight, add kg only if you use extra load." : "First time. Enter a weight."}</div>
@@ -357,7 +442,7 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
                     Beat last time · +{fmtKg(beat)} {ex.bodyweight ? "reps" : "kg"} total
                   </div>
                 )}
-                <NoteEditor slug={ex.slug} initial={data.notes[ex.slug] ?? ""} />
+                <NoteEditor slug={ex.slug} initial={data.notes[ex.slug] ?? ""} onChange={(t) => setNotes((n) => ({ ...n, [ex.slug]: t }))} />
               </div>
               <div className="mt-2 flex flex-col gap-2">
                 {exRows.map((row, i) => (
@@ -422,7 +507,27 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
         <Confetti key={b.id} id={b.id} origin={b.origin} count={b.count} power={b.power} spread={b.spread} onDone={removeBurst} />
       ))}
 
-      {rest.active && !finished && (
+      {briefing && !finished && (() => {
+        const ex = exercises.find((e) => e.slug === briefing.slug)!;
+        const row = rows[ex.slug][briefing.idx];
+        const prevLog = lastSet(data.last[ex.slug], briefing.idx + 1);
+        const prev: PrevSet | null = prevLog ? { weight: Number(prevLog.weight_kg), reps: prevLog.reps } : null;
+        const hint = data.hints[ex.slug];
+        return (
+          <SetBriefing
+            exercise={ex}
+            setIndex={briefing.idx + 1}
+            weight={row.weight}
+            prev={prev}
+            hint={hint}
+            note={notes[ex.slug] ?? ""}
+            onApplyHint={() => hint !== undefined && applyHint(ex, hint)}
+            onStart={closeBriefing}
+          />
+        );
+      })()}
+
+      {rest.active && !finished && !briefing && (
         <div
           className="anim-slide-up fixed inset-x-0 bottom-0 z-20"
           role="timer"
@@ -443,7 +548,14 @@ export function WorkoutScreen({ data, editing = false }: { data: WorkoutData; ed
               <button type="button" onClick={() => rest.adjust(15)} className="h-12 w-16 rounded-[12px] bg-surface text-sm font-bold text-text">
                 +15
               </button>
-              <button type="button" onClick={rest.stop} className="h-12 w-16 rounded-[12px] bg-surface text-sm font-bold text-muted">
+              <button
+                type="button"
+                onClick={() => {
+                  rest.stop();
+                  if (briefingOn) openBriefing(lastConfirmed.current);
+                }}
+                className="h-12 w-16 rounded-[12px] bg-surface text-sm font-bold text-muted"
+              >
                 Skip
               </button>
             </div>

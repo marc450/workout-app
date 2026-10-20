@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { saveNote } from "@/app/actions";
 
-export function NoteEditor({ slug, initial }: { slug: string; initial: string }) {
+export function NoteEditor({ slug, initial, onChange }: { slug: string; initial: string; onChange?: (text: string) => void }) {
   const [text, setText] = useState(initial);
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -48,6 +48,7 @@ export function NoteEditor({ slug, initial }: { slug: string; initial: string })
         placeholder="Seat 4, grip wide…"
         onChange={(e) => {
           setText(e.target.value);
+          onChange?.(e.target.value);
           schedule(e.target.value);
         }}
         onBlur={() => {
